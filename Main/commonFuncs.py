@@ -95,18 +95,18 @@ def plotSnow(m, xpts , ypts, var_mag, shading='flat', out='./figure', units_lab=
 	#m.drawmapboundary(fill_color='0.4' , zorder=1)
 	    m.fillcontinents(color='0.7',lake_color='grey', zorder=5)
 	
-	m.drawcoastlines(linewidth=0.25, zorder=10)
+	#m.drawcoastlines(linewidth=0.25, zorder=10)
 
-	ax1.annotate(date_string, xy=(0.04, 0.93),xycoords='axes fraction', horizontalalignment='left', verticalalignment='bottom', fontsize=10, zorder=10)
+	ax1.annotate(date_string, xy=(0.4, 0.93),xycoords='axes fraction', horizontalalignment='left', verticalalignment='bottom', fontsize=10, zorder=10)
 
 
 	#ADD COLORBAR TO MAP
-	cax = fig.add_axes([0.7, 0.95, 0.26, 0.03])
+	cax = fig.add_axes([0.72, 0.95, 0.22, 0.03])
 
 	#cax = fig.add_axes([0.1, 0.1, 0.8, 0.04])
 	cbar = colorbar(im1,cax=cax, orientation='horizontal', extend=cbar_type, use_gridspec=True)
 	cbar.set_label(units_lab)
-	cbar.set_ticks(np.linspace(minval, maxval, 4))
+	cbar.set_ticks([minval, maxval])
 
    
 

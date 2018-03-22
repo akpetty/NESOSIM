@@ -2,16 +2,17 @@
 	
 	The NASA Euelerian Snow on Sea Ice Model (NESOSIM). 
 	Model written by Alek Petty (03/01/2018)
-	Contact me for questions (alek.a.petty@nasa.gov) or refer to the GitHub site (ADD THIS)
+	Contact me for questions (alek.a.petty@nasa.gov) or refer to the GitHub site (https://github.com/akpetty/NESOSIM)
 
-
-	Run this python script with the run.py script. 
+	Run this python script with the run.py script in this same directory. 
 
 	Input:
 		Gridded/daily data of snowfall, ice drift, ice concentration, wind speeds
 
 	Output:
-		Gridded/daily data of the snow depth/density and snow budget terms (as xarrays)
+		Gridded/daily data of the snow depth/density and snow budget terms.
+		The DataOutput/MODELRUN/budgets/ netcdf files are all the snow budget terms needed for the analysis scripts/
+		The DataOutput/MODELRUN/final/ netcdf files are the finalized netcdf files of the key variables, including metadata.
 
 	Python dependencies:
 		See below for the relevant module imports. Of note:
@@ -20,6 +21,7 @@
 		matplotlib
 		basemap
 
+		More information on installation is given in the README file.
 
 	Update history:
 		03/01/2018: Version 1
@@ -446,24 +448,24 @@ def plotEndBudgets(m, xptsG, yptsG, precipDaysT, windDaysT, snowDepthsT, snowOce
 	snowAdvT, snowWindT, snowWindPackT, snowWindPackLossT, snowWindPackGainT, densityT, dateStr, totalOutStr='test'):
 	""" Plot snow budget terms """
 
-	cF.plotSnow(m, xptsG, yptsG, precipDaysT, date_string=dateStr, out=figpath+'/precip'+totalOutStr, units_lab=r'm', minval=0., maxval=1., base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, windDaysT, date_string=dateStr, out=figpath+'/wind'+totalOutStr, units_lab=r'm/s', minval=0., maxval=10, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, precipDaysT, date_string=dateStr, out=figpath+'/precip'+totalOutStr, units_lab=r'kg/m2', minval=0., maxval=1., base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, windDaysT, date_string=dateStr, out=figpath+'/wind'+totalOutStr, units_lab=r'm/s', minval=0., maxval=10, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
 
-	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[0], date_string=dateStr, out=figpath+'/snowNew_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[1], date_string=dateStr, out=figpath+'/snowOld_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, (snowDepthsT[0]+snowDepthsT[1]), date_string=dateStr, out=figpath+'/snowTot_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[0], date_string=dateStr, out=figpath+'/snowNew_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[1], date_string=dateStr, out=figpath+'/snowOld_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, (snowDepthsT[0]+snowDepthsT[1]), date_string=dateStr, out=figpath+'/snowTot_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
 
-	cF.plotSnow(m, xptsG, yptsG, snowOceanT, date_string=dateStr, out=figpath+'/snowOcean_'+totalOutStr, units_lab=r'm', minval=-0.6, maxval=0, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, snowAccT, date_string=dateStr, out=figpath+'/snowAcc_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.6, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, snowOceanT, date_string=dateStr, out=figpath+'/snowOcean_'+totalOutStr, units_lab=r'm', minval=-0.6, maxval=0, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, snowAccT, date_string=dateStr, out=figpath+'/snowAcc_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.6, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
 
-	cF.plotSnow(m, xptsG, yptsG, snowDivT, date_string=dateStr, out=figpath+'/snowDiv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=0, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowAdvT, date_string=dateStr, out=figpath+'/snowAdv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=0, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowWindT, date_string=dateStr, out=figpath+'/snowWind_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=0, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackT, date_string=dateStr, out=figpath+'/snowWindPackNet_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=0, norm=0, cmap_1=cm.cubehelix)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackLossT, date_string=dateStr, out=figpath+'/snowWindPackLoss_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=0, norm=0, cmap_1=cm.cubehelix)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackGainT, date_string=dateStr, out=figpath+'/snowWindPackGain_'+totalOutStr, units_lab=r'm', minval=0, maxval=0.3, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, snowDivT, date_string=dateStr, out=figpath+'/snowDiv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
+	cF.plotSnow(m, xptsG, yptsG, snowAdvT, date_string=dateStr, out=figpath+'/snowAdv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
+	cF.plotSnow(m, xptsG, yptsG, snowWindT, date_string=dateStr, out=figpath+'/snowWind_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
+	cF.plotSnow(m, xptsG, yptsG, snowWindPackT, date_string=dateStr, out=figpath+'/snowWindPackNet_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=1, norm=0, cmap_1=cm.cubehelix)
+	cF.plotSnow(m, xptsG, yptsG, snowWindPackLossT, date_string=dateStr, out=figpath+'/snowWindPackLoss_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=1, norm=0, cmap_1=cm.cubehelix)
+	cF.plotSnow(m, xptsG, yptsG, snowWindPackGainT, date_string=dateStr, out=figpath+'/snowWindPackGain_'+totalOutStr, units_lab=r'm', minval=0, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
 
-	cF.plotSnow(m, xptsG, yptsG, densityT, date_string=dateStr, out=figpath+'/dens'+totalOutStr, units_lab=r'm', minval=300, maxval=360, base_mask=0, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plotSnow(m, xptsG, yptsG, densityT, date_string=dateStr, out=figpath+'/dens'+totalOutStr, units_lab=r'kg/m3', minval=300, maxval=360, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
 
 
 
@@ -685,5 +687,5 @@ def main(year1, month1, day1, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP
 	if (plotBudgets==1):
 		# Plot final snow budget terms
 		plotEndBudgets(m, xptsG, yptsG, precipDayG, windDayG, snowDepths[x+1], snowOcean[x+1], snowAcc[x+1], snowDiv[x+1], \
-		snowAdv[x+1], snowWind[x+1], snowWindPack[x+1], snowWindPackLoss[x+1], snowWindPackGain[x+1], density[x+1], dateOut, totalOutStr=saveStr)
+		snowAdv[x+1], snowWind[x+1], snowWindPack[x+1], snowWindPackLoss[x+1], snowWindPackGain[x+1], density[x+1], dates[-1], totalOutStr=saveStr)
 
