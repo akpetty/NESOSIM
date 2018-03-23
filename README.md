@@ -20,6 +20,10 @@ Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on S
 
 We used conda to install and maintain our Python (2.7) environment. The relevant dependancies of this conda Python environment can be found in nesosim.yml, providing a direct means of cloning this Python environment directly (including the same module versions). 
 
+```
+conda env create -f nesosim.yml
+```
+
 The code was also tested on a remote server using a new default conda 2.7 Python enviornment and the following additions:
 
 ```
@@ -30,7 +34,7 @@ conda install basemap
 conda install h5py
 conda install netCDF4
 ```
-This conda Python environment can then be activated with 
+The conda Python environment can then be activated with 
 
 ```
 source activate <ENVNAME>

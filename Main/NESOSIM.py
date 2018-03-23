@@ -535,12 +535,13 @@ def main(year1, month1, day1, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP
 
 	# Map projection
 	m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False  )
-	# Model directories
 	
 	global dataPath
 	global outPath
 	
-	outPath='../DataOutput/' #'../../DataOutput/'
+	outPath='../DataOutput/'
+
+	# Or try ../TestData/
 	dataPath='../Data/'
 
 	# Grid info
@@ -550,12 +551,11 @@ def main(year1, month1, day1, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP
 	region_maskG=load(dataPath+'/Extra/regionMaskG'+dxStr)
 
 	# Products used
-	#driftP='NSIDCv3' #'Kimura'
 	extraStr=''
-	#reanalysisP='ERAI'
 	reanalysisWind='ERAI' # NCEPR2, 
-	#varStr='sf' # tp is precip, sf is snowfall for the reanalyses that provide that, e.g. ERA-I
 	windStr='WindMag'
+	#reanalysisP='ERAI'
+	#varStr='sf' # tp is precip, sf is snowfall for the reanalyses that provide that, e.g. ERA-I
 	
 
 	# Assign density of the two snow layers
@@ -661,16 +661,6 @@ def main(year1, month1, day1, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP
 			snowDiv, snowWind, snowWindPackLoss, snowWindPackGain, snowWindPack, region_maskG, dx, x, day,
 			densityType=densityTypeT, dynamicsInc=dynamicsInc, leadlossInc=leadlossInc, windpackInc=windpackInc)
 		
-		#outStr=''
-		#print snowDepths.shape
-		#pF.plotSnow(m, xptsG, yptsG, snowDepths[x+1, 0], date_string=str(day), out=figpath+'/Snow/2layer/snow0D'+driftP+extraStr+reanalysisP+varStr+'_sy'+str(year1)+'d'+str(day)+outStr, units_lab=r'm', minval=-.02, maxval=.02, base_mask=0, norm=0, cmap_1=cm.RdYlBu)
-
-		#pF.plotSnow(m, xptsG, yptsG, snowDepths[x+1, 1], date_string=str(day), out=figpath+'/Snow/2layer/snow1D'+driftP+extraStr+reanalysisP+varStr+'_sy'+str(year1)+'d'+str(day)+outStr, units_lab=r'm', minval=-.02, maxval=.02, base_mask=0, norm=0, cmap_1=cm.RdYlBu)
-
-		#densityT=ma.masked_where(np.isnan(density[x+1]), density[x+1])
-
-		#pF.plotSnow(m, xptsG, yptsG, densityT, date_string=str(day), out=figpath+'/Snow/2layer/densityD'+driftP+extraStr+reanalysisP+varStr+'_sy'+str(year1)+'d'+str(day)+outStr, units_lab=r'kg/m3', minval=180, maxval=360, base_mask=0, norm=0, cmap_1=cm.viridis)
-
 	# Load last data 
 	iceConcDayG, precipDayG, _, windDayG=loadData(year, day+1, driftP, reanalysisP, reanalysisWind,varStr, windStr, dxStr, team_s, yearT2=yearIC)
 	precipDays[x+1]=precipDayG
@@ -680,12 +670,12 @@ def main(year1, month1, day1, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP
 	outStrings=['snowDepthTotal','snowDepthTotalConc', 'density', 'iceConc', 'Precip']
 
 	if (saveData==1):
-		# Output snow budget terms to xarray datafiles
+		# Output snow budget terms to netcdf datafiles
 		OutputSnowModelRaw(savePath, saveStr, snowDepths, density, precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowWind, snowWindPack)
 		OutputSnowModelFinal(savePath, saveStr, lonG, latG, snowDepths[:, 0]+snowDepths[:, 1], (snowDepths[:, 0]+snowDepths[:, 1])/iceConcDays, density, iceConcDays, precipDays, dates)
 
 	if (plotBudgets==1):
-		# Plot final snow budget terms
+		# Plot final snow budget terms 
 		plotEndBudgets(m, xptsG, yptsG, precipDayG, windDayG, snowDepths[x+1], snowOcean[x+1], snowAcc[x+1], snowDiv[x+1], \
 		snowAdv[x+1], snowWind[x+1], snowWindPack[x+1], snowWindPackLoss[x+1], snowWindPackGain[x+1], density[x+1], dates[-1], totalOutStr=saveStr)
 
