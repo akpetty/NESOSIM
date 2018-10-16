@@ -1,0 +1,6 @@
+*
+*/
+/Diagnostic/*/*
+/Warren/*
+/Paper/*
+!.gitignore
