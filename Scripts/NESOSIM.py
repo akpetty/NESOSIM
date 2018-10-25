@@ -78,7 +78,7 @@ def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 
 	print ('saving to:', savePath+'/budgets/'+saveStr)
 
-	dataSet.to_netcdf(savePath+'/budgets/'+saveStr) 
+	dataSet.to_netcdf(savePath+'/budgets/'+saveStr+'.nc') 
 
 def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, densityT, iceConcT, precipT, datesT):
 	""" Read in xrarray data and save as netCDF 

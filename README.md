@@ -1,7 +1,7 @@
 # The NASA Eulerian Snow on Sea Ice Model (NESOSIM) v1.0
 **Contact: Alek Petty / alek.a.petty@nasa.gov / www.alekpetty.com**
 
-The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of snow depth and density across the polar oceans.  
+The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the sea ice snow depth and snow density across the polar oceans.  
 
 NESOSIM v1.0 includes several parameterizations that represent key mechanisms of snow variability through the snow accumulation/growth season, and two snow layers to broadly represent the evolution of both old/compacted snow and new/fresh snow. 
 
@@ -89,18 +89,23 @@ Descriptions should be included at the top of each Python script.
 
 ### Forcing Data
 
-MERGE TEST DATA WITH FORCINGS FOLDER - MAKE THE GITIGNORE INCLUDE THIS AND THEN PROVIDE ALL FORCING DATA ON A SERVER.
 
-NESOSIMv1.0 is forced with daily inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
+NESOSIM (v1.0) is forced with daily inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
 
 The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD).
 
 ```
 Forcings/
 ```
-- Contains all the forcing data and currently includes sample gridded (100 km) test forcing data for 2010-2011: ERA-I (snowfall and winds) and MEDIAN-SF (snowfall), Bootstrap (ice concentration), NSIDCv3 (ice drift). 
+ - Currently empty because of size constraints, but test forcing data are available in the following repository. All the gridded data used in Petty et al., (2018, GMD) will be made available to download shortly, which should be copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
 
-All the gridded data used in Petty et al., (2018, GMD) will be made available to download shortly, which should be copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
+
+```
+TestForcings/
+```
+
+ - Includes sample gridded (100 km) test forcing data for 2010-2011: ERA-I (snowfall and winds) and MEDIAN-SF (snowfall), Bootstrap (ice concentration), NSIDCv3 (ice drift). 
+
 
 ### Ancillary Data
 
@@ -109,9 +114,25 @@ AncData/
 ```
 - Contains temperature-scaled intitial snow depths and the drifting soviet station data that were used for model calibration.
 
-### Output
+### Model Output
 
-Add info here.
+ NetCDF files used by the various analysis/plotting scripts included in this repo, which include all the model variables, can be found out:
+```
+Output/budgets
+```
+
+NetCDF files only including the primary model variables are also generated and stored in:
+```
+Output/final
+```
+A single NetCDF file is provided for each annual accumulation season model run (August 15th to May 1st of the following year), providing daily data on the 100 km polar stereographic model domain. 
+In this final output, each NetCDF file includes the following variables: 
+ - Effective snow depth (snowDepth)
+ - Grid-cell snow volume (snowVol)
+ - Bulk snow density (density)
+ - Reanalysis-derived daily cumulative snowfall (Precip)
+ - Passive microwave ice concentration data (iceConc)
+ - Day of the year (day). 
 
 
 Contact me if you any any questions (alek.a.petty@nasa.gov)!

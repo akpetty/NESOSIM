@@ -939,7 +939,7 @@ def correlateVars(var1, var2):
 
 def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, region='', converttocm=0):
 
-  data=xr.open_dataset(outPath+folderStr+'/budgets/'+totalOutStr) 
+  data=xr.open_dataset(outPath+folderStr+'/budgets/'+totalOutStr+'.nc') 
   
   iceConcDay=array(data['iceConc'][dayT])
   #iceConcDay=ma.masked_where(iceConcDay<0.15, iceConcDay)
