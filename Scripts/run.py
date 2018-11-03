@@ -39,14 +39,14 @@ import NESOSIM
 #forcingPath='../Forcings/'
 
 # To loop over a number of years
-for y in range(2000, 2016+1):
+for y in range(2010, 2016+1):
 	if (y==1987):
 		continue
 	print (y)
 	NESOSIM.main(y, 7, 14, 
 		outPathT='/Volumes/PETTY_PASSPORT3/NESOSIM/Output/', 
 		forcingPathT='/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/', 
-		reanalysisP='MEDIAN', varStr='sf', driftP='NSIDCv3', team_s='bt', densityTypeT='variable', 
+		reanalysisP='ERAI', varStr='sf', driftP='NSIDCv3', team_s='bt', densityTypeT='variable', 
 		outStr='BSThresh', IC=1, windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=2.9e-7,
 		dynamicsInc=1, leadlossInc=1, windpackInc=1)
 

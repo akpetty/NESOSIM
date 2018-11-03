@@ -58,6 +58,53 @@ def getDays(year1, month1, day1, year2, month2, day2):
 
   return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
 
+def getCSatDrift(file, m, numDaysLag=3, rotatetoXY=1):
+	
+	f = Dataset(file, 'r')
+	u = f.variables['zonal_motion'][0]/(60.*60.*24.*numDaysLag)
+	v = f.variables['meridional_motion'][0]/(60.*60.*24.*numDaysLag)
+	lon = f.variables['longitude'][:]
+	lat = f.variables['latitude'][:]
+    
+    #less than 0 are flags meaning the drift hasnt passed certain tests. 
+    #q = f.variables['quality_flag'][0]
+    #u = ma.masked_where((q<=0), u)
+    #v = ma.masked_where((q<=0), v)
+
+    #ROTATE VECOTRS TO X/Y GRID
+	if (rotatetoXY==1):
+		ux,vy = m.rotate_vector(u,v,lon,lat)
+		return ux, vy, lon, lat
+	else:
+		return u, v, lon, lat
+
+def getKimuradriftDayRaw(rawdatapath, fileT, m):
+
+	lonlatK = loadtxt(rawdatapath+'/ICE_DRIFT/KIMURA/'+'latlon_amsr_ads145.txt', unpack=True)
+	latsK=flipud(lonlatK[2].reshape(145, 145))
+	lonsK=flipud(lonlatK[3].reshape(145, 145))
+	xptsK, yptsK=m(lonsK, latsK)
+	alphaK = lonsK*pi/180.
+
+	# Comes in xy coordinates so need to rotate to UV
+	     
+	KFile = open(fileT, 'r')
+	Kdrift = fromfile(file=KFile, dtype=float32)
+	Kdrift=ma.masked_where(Kdrift>900, Kdrift/100.)
+	xvel=-flipud(Kdrift[0::2].reshape(145, 145))
+	yvel=-flipud(Kdrift[1::2].reshape(145, 145))
+
+	uvelK = yvel*sin(alphaK) + xvel*cos(alphaK)
+	vvelK = yvel*cos(alphaK) - xvel*sin(alphaK) 
+
+	xvelG,yvelG = m.rotate_vector(uvelK,vvelK,lonsK,latsK)
+
+	xvelG[where(ma.getmask(xvelG))]=np.nan
+	yvelG[where(ma.getmask(yvelG))]=np.nan
+	driftKday=stack((xvelG, yvelG))
+
+
+	return xptsK, yptsK, driftKday, lonsK, latsK
 
 def getFowlerDrift(file,lon):
 	
@@ -116,6 +163,42 @@ def smoothDriftDaily(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigmaG=0.75):
 	driftFG[0]=ma.masked_where(np.isnan(driftFGxN), driftFGxg)
 	driftFG[1]=ma.masked_where(np.isnan(driftFGyN), driftFGyg)
 	return driftFG
+
+def getOSISAFDrift(m, fileT):
+	"""
+	Calculate the OSI-SAF vectors on our map projection
+	With help from Thomas Lavergne!
+
+	"""
+
+	f = Dataset(fileT, 'r')
+	print fileT
+
+        # read lat/lon (start points) and lat1/lon1 (end points)
+	lon = (f.variables['lon'][:])
+	lon1 = (f.variables['lon1'][0])
+	lat = (f.variables['lat'][:])
+	lat1 = (f.variables['lat1'][0])
+        f.close()
+
+	# transform to map project coordinates (basemap's axes, assume they have unit of m)
+	x0, y0=m(lon, lat)
+	x1, y1=m(lon1, lat1)
+
+	xpts=(x0+x1)/2.
+	ypts=(y0+y1)/2.
+
+        # normalize drift components to m/s (x1-x0 is already m, so we just divide by 2-days worth of seconds)
+	xt=(x1-x0)/(60*60*24*2.)
+	yt=(y1-y0)/(60*60*24*2.)
+
+        # TL: no need to rotate : the xt, and yt are already in the basemap's projection
+
+        # compute magnitude (speed scalar)
+	mag=sqrt(xt**2+yt**2)
+        #print mag.mean(), mag.min(), mag.max()
+
+	return xt, yt, mag, lat, lon, xpts, ypts
 
 def getFowlerdriftMonthV3(rawdatapath, year, month, m, mean=0):
 
