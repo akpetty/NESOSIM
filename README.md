@@ -97,7 +97,7 @@ The various forcing data used to run NESOSIM are described in Petty et al., (201
 ```
 Forcings/
 ```
- - Currently empty because of size constraints, but test forcing data are available in the following repository. All the gridded data used in Petty et al., (2018, GMD) will be made available to download shortly, which should be copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
+ - Currently empty because of size constraints, but all the gridded forcing data used in Petty et al., (2018, GMD) have been made available on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516, which can be downloaded, unzipped, and copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
 
 
 ```
@@ -133,6 +133,8 @@ In this final output, each NetCDF file includes the following variables:
  - Reanalysis-derived daily cumulative snowfall (Precip)
  - Passive microwave ice concentration data (iceConc)
  - Day of the year (day). 
+
+ The final NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
 
 
 Contact me if you any any questions (alek.a.petty@nasa.gov)!
