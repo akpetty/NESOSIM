@@ -1082,4 +1082,29 @@ def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, re
     print ('1 var')
     return snowDataT
 
+def get_region_mask(datapath, mplot, xypts_return=0):
+	header = 300
+	datatype='uint8'
+	file_mask = datapath+'/OTHER/region_n.msk'
+
+	#8 - Arctic Ocean
+	#9 - Canadian Archipelago
+	#10 - Gulf of St Lawrence
+	#11 - Land
+
+	fd = open(file_mask, 'rb')
+	region_mask = fromfile(file=fd, dtype=datatype)
+	region_mask = reshape(region_mask[header:], [448, 304])
+
+	if (xypts_return==1):
+		mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
+		mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
+		lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+		lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+
+		xpts, ypts = mplot(lons_mask, lats_mask)
+
+		return region_mask, xpts, ypts
+	else:
+		return region_mask
 
