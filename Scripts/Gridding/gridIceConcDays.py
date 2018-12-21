@@ -33,39 +33,23 @@ sys.path.append('../')
 import commonFuncs as cF
 import os
 
-rcParams['ytick.major.size'] = 2
-rcParams['axes.linewidth'] = .5
-rcParams['lines.linewidth'] = .5
-rcParams['patch.linewidth'] = .5
-rcParams['ytick.labelsize']=8
-rcParams['legend.fontsize']=8
-rcParams['font.size']=8
-rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
 
-m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
-#m = Basemap(projection='npstere',boundinglat=30.52,lon_0=0, resolution='l'  )
-
-
-fataPath = '/Volumes/PETTY_PASSPORT3/DATA/'
+dataPath = '/Volumes/PETTY_PASSPORT3/DATA/'
 figpath='/Volumes/PETTY_PASSPORT3/NESOSIM/Figures/Diagnostic/IceConc/'
 outPath = '/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/IceConc/'
 
-
+m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
 dx=100000.
 dxStr=str(int(dx/1000))+'km'
 print dxStr
-
 lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
-
 region_mask, xptsI, yptsI = cF.get_region_mask_sect(dataPath, m, xypts_return=1)
-
 latsI, lonsI = cF.get_psnlatslons(dataPath)
 
 def main(year):
 
 	numDaysYr=cF.getLeapYr(year)
 	if (numDaysYr>365):
-		#monIndex = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
 		monIndex = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 	else:
 		monIndex = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -92,6 +76,7 @@ def main(year):
 		pmask=cF.get_pmask(year, month)
 
 		numDays=monIndex[month]
+		
 		# should return array with nans not masked as needed for regridding.
 		for x in xrange(numDays):
 			dayT=sum(monIndex[0:month])+x
@@ -105,7 +90,6 @@ def main(year):
 
 			concHole=ma.mean(iceConcDay[(latsI>pmask-0.5) & (latsI<pmask)])
 
-			#iceConcMon[x] = where((latsI >=pmask-0.5), 1, iceConcMon[x])
 			iceConcDay = where((latsI >=pmask-0.5), concHole, iceConcDay)
 			#iceConcMon[x]=ma.filled(np.nan)
 

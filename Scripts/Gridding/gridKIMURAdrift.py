@@ -33,28 +33,14 @@ import commonFuncs as cF
 import os
 
 
-rcParams['ytick.major.size'] = 2
-rcParams['axes.linewidth'] = .5
-rcParams['lines.linewidth'] = .5
-rcParams['patch.linewidth'] = .5
-rcParams['ytick.labelsize']=8
-rcParams['legend.fontsize']=8
-rcParams['font.size']=8
-rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
-
-m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False  )
-#m = Basemap(projection='npstere',boundinglat=30.52,lon_0=0, resolution='l'  )
-
-
 dataPath = '/Volumes/PETTY_PASSPORT3/DATA/'
 figpath='/Volumes/PETTY_PASSPORT3/NESOSIM/Figures/Drift/Kimura/'
 outPath = '/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/Drifts/Kimura/'
 
-
+m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False  )
 dx=100000.
 dxStr=str(int(dx/1000))+'km'
 print dxStr
-
 lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
 
 
@@ -62,7 +48,6 @@ def main(year):
 
 	numDaysYr=cF.getLeapYr(year)
 	if (numDaysYr>365):
-		#monIndex = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
 		monIndex = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 	else:
 		monIndex = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -123,9 +108,6 @@ def main(year):
 					# just set the daily drift to a masked array (no drifts available)
 					driftCG=ma.masked_all((2,xptsG.shape[0], xptsG.shape[1]))
 
-
-			#drift_day_xy[1] = vy 
-			#sqrt(driftKGKx**2+driftKGKy**2)
 			cF.plot_CSAT_DRIFT(m, xptsG , yptsG , driftCG[0], driftCG[1], sqrt(driftCG[0]**2+driftCG[1]**2) , out=figpath+'Kimura'+str(year)+'_d'+dayStr+'N', units_lab='m/s', units_vec=r'm s$^{-1}$',
 				minval=0, maxval=0.5, base_mask=1, res=2, vector_val=0.1, year_string=ystr+mstr+dstr, month_string='', extra='',cbar_type='max', cmap=plt.cm.viridis)
 				

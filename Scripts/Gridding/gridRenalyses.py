@@ -49,24 +49,14 @@ def main(year, reanalysis):
 	print year, reanalysis
 	yearT=year
 
-	#numDays=pF.getLeapYr(year)
-	#if (numDays>365):
-	#	monIndex = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
-	#else:
-	#	monIndex = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
-
 	numDays=365
 	monIndex = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
 
 
-	#reanalysisDataPath ='/Volumes/icebridgedata2/data/From_Melinda/griddeddata/'
 	outPath='../../DataOutput/Reanalyses/'+reanalysis+'/'
-	#outPathE='../../DataOutput/Reanalyses/'+'ERAI'+'/'
-	#outPath = '/Volumes/PETTY_PASSPORT2/pasta/DataOutput/Reanalyses/'+reanalysis+'/'
-	#figpath='../../Figures/Budgets/'+reanalysis+'/'
 	figpath = '/Volumes/PETTY_PASSPORT2/pasta/Figures/Budgets/'+reanalysis+'/'
-
-	# FOR ALL MONTHS ADD 1, SO 9 iS OCTOBER
+	
+	# Index starts at 0 (January)
 	startMonth=0
 	endMonth=11
 
@@ -117,8 +107,6 @@ def main(year, reanalysis):
 
 
 		#in  kg/m2 per day
-		#xptsM, yptsM, lonsM, latsM, Precip =pF.get_ERA_precip_days(m, reanalysisDataPath, yearT, dayT, varStr=varStr)
-
 		# NOTE THE PLUS 1 ON THE DAY AS MERRA/MERRA2/JRA START AT 001 not 000
 		Precip =pF.get_GRIDDED_precip_days(m, reanalysisDataPath, precipStr, reanalysis, yearT, dayT+1, mask_val=-999, multi_var=0, offset=0)
 
@@ -130,16 +118,7 @@ def main(year, reanalysis):
 		
 		#pF.plotSnow(m, xptsG, yptsG, PrecipG, out=figpath+'/'+varStr+'-'+str(yearT)+'_d'+str(dayT)+'T2', units_lab=r'kg/m2', minval=0, maxval=10, base_mask=0, norm=0, cmap_1=cm.viridis)
 
-		#tempG=load(outPathE+'2mt'+'/'+str(yearT)+'/'+'ERAI'+'2mt'+dxStr+'-'+str(yearT)+'_d'+dayStr)
-
-		#PrecipG[where(tempG>0)]=0
-		#pF.plotSnow(m, xptsG, yptsG, PrecipG, out=figpath+varStr+'-'+str(yearT)+'_d'+str(dayT)+'T2', units_lab=r'kg/m2', minval=0, maxval=10, base_mask=0, norm=0, cmap_1=cm.viridis)
-
-
-		#monthStr='%02d' %(month+1)
 		PrecipG.dump(outPath+varStr+'/'+str(yearT)+'/'+reanalysis+varStr+dxStr+'-'+str(yearT)+'_d'+dayStr)
-
-	#PrecipDaysG.dump(outPath+reanalysis+varStr+dxStr+'-'+str(year)+str(startMonth)+'-'+str(yearT)+str(endMonth))
 
 #-- run main program
 if __name__ == '__main__':

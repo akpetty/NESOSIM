@@ -32,20 +32,16 @@ sys.path.append('../')
 import commonFuncs as cF
 import os
 
-m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
-#m = Basemap(projection='npstere',boundinglat=30.52,lon_0=0, resolution='l'  )
 
-#figpath='../../Figures/Budgets/'
 outPath='/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/'
 dataPath='../../Data/'
 figpath='/Volumes/PETTY_PASSPORT3/NESOSIM/Figures/InitialConds/'
 
+m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
 dx=100000.
 dxStr=str(int(dx/1000))+'km'
 print dxStr
-#region_maskG=load(outPath+'regionMaskG'+dxStr)
 region_maskG=load(outPath+'regionMaskG'+dxStr)
-
 lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
 
 
@@ -60,15 +56,14 @@ def main(year):
 	snowG[where(latG<70)]=0
 	snowG[where(region_maskG>8.2)]=0
 	snowG[where(region_maskG<=7.8)]=0
-
 	snowG[where(snowG<0)]=0
 
-	dayStr=str(226) #226 is middle of August
+	day=226
+	dayStr=str(day) #226 is middle of August
 
 	iceConcDayG=load(outPath+'/IceConc/'+'/'+str(year)+'/iceConcG'+dxStr+'-'+str(year)+'_d'+dayStr)
 	snowG[where(iceConcDayG<0.15)]=0
 	
-
 	snowG.dump(outPath+'InitialConds/ICsnow'+str(year)+'-'+dxStr)
 
 	rcParams['ytick.major.size'] = 2

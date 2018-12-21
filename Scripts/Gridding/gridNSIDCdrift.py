@@ -32,26 +32,15 @@ sys.path.append('../')
 import commonFuncs as cF
 import os
 
-rcParams['ytick.major.size'] = 2
-rcParams['axes.linewidth'] = .5
-rcParams['lines.linewidth'] = .5
-rcParams['patch.linewidth'] = .5
-rcParams['ytick.labelsize']=8
-rcParams['legend.fontsize']=8
-rcParams['font.size']=8
-rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
-
-m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
-#m = Basemap(projection='npstere',boundinglat=30.52,lon_0=0, resolution='l'  )
 
 dataPath = '/Volumes/PETTY_PASSPORT3/DATA/'
 figpath='/Volumes/PETTY_PASSPORT3/NESOSIM/Figures/Drift/NSIDCv3/'
 outPath = '/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/Drifts/NSIDCv3/'
 
+m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
 dx=100000.
 dxStr=str(int(dx/1000))+'km'
 print dxStr
-
 lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
 
 def main(year):
@@ -81,14 +70,12 @@ def main(year):
 		dateStr=str(yearT)+mstr
 		print dateStr
 
-		#xptsF, yptsF, driftFmon, lonC, latC = cF.getCSATdriftMonth(dataPath, year, month, m, rotatetoXY=1)
-		
+	
 		xptsF, yptsF, driftFmon, lonsF, latsF = cF.getFowlerdriftMonthV3(dataPath, yearT, month, m)
-			
-		#xvelCG, yvelCG, curlC = getGriddedFowlerCurlFromDaily(m, dailyDriftFiles,lonF,  xptsF, yptsF, xptsG, yptsG, lonG, latG, dxRes)
 			
 		numDays=driftFmon.shape[0]
 		#driftFmon=ma.masked_invalid(driftFmon)
+
 		# should return array with nans not masked as needed for regridding.
 		for x in xrange(numDays):
 			xstr='%03d' %x
@@ -99,19 +86,13 @@ def main(year):
 
 			driftFG = cF.smoothDriftDaily(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon[x], sigmaG=0.75)
 
-			#cF.plot_CSAT_DRIFT(m, xptsG , yptsG , driftFG[0], driftFG[1], sqrt(driftFG[0]**2+driftFG[1]**2), out=figpath+'NSIDCv3'+dateStr+'_d'+xstr, units_lab='m/s', units_vec=r'm s$^{-1}$',
-			#	minval=0, maxval=0.5, res=2, vector_val=0.1, year_string=dateStr, month_string=xstr, extra='',cbar_type='max', cmap=plt.cm.viridis)
+			cF.plot_CSAT_DRIFT(m, xptsG , yptsG , driftFG[0], driftFG[1], sqrt(driftFG[0]**2+driftFG[1]**2), out=figpath+'NSIDCv3'+dateStr+'_d'+xstr, units_lab='m/s', units_vec=r'm s$^{-1}$',
+				minval=0, maxval=0.5, res=2, vector_val=0.1, year_string=dateStr, month_string=xstr, extra='',cbar_type='max', cmap=plt.cm.viridis)
 
 			driftFG=driftFG.astype('f2')
 
 			driftFG.dump(outPath+str(yearT)+'/NSIDCv3DriftG'+dxStr+'-'+str(yearT)+'_d'+dayStr)
 
-
-			#driftFG = driftFG[np.newaxis, ...]
-			#driftFGK = driftFGK[np.newaxis, ...]
-				
-			#driftGdays = ma.vstack([driftGdays, driftFG])
-			#driftGKdays = ma.vstack([driftGKdays, driftFGK])
 
 
 #-- run main program
@@ -119,7 +100,5 @@ if __name__ == '__main__':
 	for y in xrange(2016, 2016+1, 1):
 		print y
 		main(y)
-
-#driftGKdays.dump(outPath+'FowlerDriftGK'+dxStr+'-'+str(year)+str(startMonth)+'-'+str(yearT)+str(endMonth))
 
 
