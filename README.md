@@ -17,7 +17,7 @@ Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on S
 
 Versions:
  - v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st).
-
+ - v1.1: This new version of NESOSIM includes a few small updates including: upgrade to Python 3, a bigger domain, introduction of CloudSat scaling parameters (Cabaj et al., 2020)
 
 ## Getting Started
 
