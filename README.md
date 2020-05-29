@@ -1,4 +1,4 @@
-# The NASA Eulerian Snow on Sea Ice Model (NESOSIM) v1.0
+# The NASA Eulerian Snow on Sea Ice Model (NESOSIM)
 **Contact: Alek Petty / alek.a.petty@nasa.gov / www.alekpetty.com**
 
 The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the depth and density fo snow on sea ice across the polar oceans.  
@@ -14,7 +14,7 @@ For more details of the model physics and preliminary results/calibration effort
 Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on Sea Ice Model (NESOSIM): Initial model development and analysis, Geosci. Mod. Dev.
 
 Versions:
- v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please refer to that source code (click on the releases tab aobve) for that specific code version.
+ v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.   
  v1.1: This latest version of NESOSIM includes a few minor updates. Thanks to Alex Cabaj for the help with some of this. Changes include: 
   - Upgrade of the code to Python 3.
   - 50 km (increased from 100 km) grid resolution.
@@ -53,9 +53,9 @@ Further information about installing Conda/Python, and a brief introduction to u
 The NESOSIM model source code can be found in 
 
 ```
-Scripts/NESOSIM.py
+source/NESOSIM.py
 ```
-which also needs various functions included in commonFuncs.py. This file is best run using the seperate configuration/run script.
+which also needs various functions included in utils.py. This file is best run using the seperate configuration/run script.
 
 ```
 python run.py
@@ -63,22 +63,22 @@ python run.py
 
 Also included in this repo:
 ```
-Scripts/Analysis/
+source/analysis/
 ```
 - Analysis scripts used in Petty et al., (2018, GMD).
 
 ```
-Scripts/GetData/
+source/get_data/
 ```
  - Scripts to download the raw forcing data files.
 
 ```
-Scripts/Gridding/
+source/gridding/
 ```
 - Scripts to grid these raw forcing data to the model domain.
 
 ```
-Scripts/Plotting
+source/plotting
 ```
 - Plotting scripts used in Petty et al., (2018, GMD).
 
