@@ -1,8 +1,8 @@
-""" commonFuncs.py
+""" utils.py
 	
 	Common functions used by the NESOSIM.py script 
-	Model written by Alek Petty (03/01/2018)
-	Contact me for questions (alek.a.petty@nasa.gov) or refer to the GitHub site (ADD THIS)
+	Original code written by Alek Petty (03/01/2018)
+	Contact me for questions (alek.a.petty@nasa.gov)
 
 
 	Python dependencies:
@@ -12,23 +12,24 @@
 
 	Update history:
 		03/01/2018: Version 1
+		05/10/2020: Version 2: Converted to Python 3
+								Changed name to utils.py
 
 """
 
-
-from pylab import *
 from glob import glob
+import matplotlib.pyplot as plt
+import matplotlib.colorbar as mcbar
 from scipy.interpolate import griddata
 import xarray as xr
 from scipy import stats
-
-def defGrid(m, dxRes=50000):
-    nx = int((m.xmax-m.xmin)/dxRes)+1; ny = int((m.ymax-m.ymin)/dxRes)+1
-    gridStr=str(int(dxRes/1000))+'km'
-    lonsG, latsG, xptsG, yptsG = m.makegrid(nx, ny, returnxy=True)
-
-    return lonsG, latsG, xptsG, yptsG, nx, ny
-
+import numpy as np
+from netCDF4 import Dataset
+import cartopy.crs as ccrs
+import pyproj
+import numpy.ma as ma
+from scipy.ndimage.filters import gaussian_filter
+import datetime
 
 def getLeapYr(year):
 	
@@ -38,7 +39,6 @@ def getLeapYr(year):
   else:
     numDays=365
   return numDays
-
 
 
 def getDays(year1, month1, day1, year2, month2, day2):
@@ -58,94 +58,25 @@ def getDays(year1, month1, day1, year2, month2, day2):
 
   return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
 
-def getCSatDrift(file, m, numDaysLag=3, rotatetoXY=1):
-	
-	f = Dataset(file, 'r')
-	u = f.variables['zonal_motion'][0]/(60.*60.*24.*numDaysLag)
-	v = f.variables['meridional_motion'][0]/(60.*60.*24.*numDaysLag)
-	lon = f.variables['longitude'][:]
-	lat = f.variables['latitude'][:]
-    
-    #less than 0 are flags meaning the drift hasnt passed certain tests. 
-    #q = f.variables['quality_flag'][0]
-    #u = ma.masked_where((q<=0), u)
-    #v = ma.masked_where((q<=0), v)
-
-    #ROTATE VECOTRS TO X/Y GRID
-	if (rotatetoXY==1):
-		ux,vy = m.rotate_vector(u,v,lon,lat)
-		return ux, vy, lon, lat
-	else:
-		return u, v, lon, lat
-
-def getKimuradriftDayRaw(rawdatapath, fileT, m):
-
-	lonlatK = loadtxt(rawdatapath+'/ICE_DRIFT/KIMURA/'+'latlon_amsr_ads145.txt', unpack=True)
-	latsK=flipud(lonlatK[2].reshape(145, 145))
-	lonsK=flipud(lonlatK[3].reshape(145, 145))
-	xptsK, yptsK=m(lonsK, latsK)
-	alphaK = lonsK*pi/180.
-
-	# Comes in xy coordinates so need to rotate to UV
-	     
-	KFile = open(fileT, 'r')
-	Kdrift = fromfile(file=KFile, dtype=float32)
-	Kdrift=ma.masked_where(Kdrift>900, Kdrift/100.)
-	xvel=-flipud(Kdrift[0::2].reshape(145, 145))
-	yvel=-flipud(Kdrift[1::2].reshape(145, 145))
-
-	uvelK = yvel*sin(alphaK) + xvel*cos(alphaK)
-	vvelK = yvel*cos(alphaK) - xvel*sin(alphaK) 
-
-	xvelG,yvelG = m.rotate_vector(uvelK,vvelK,lonsK,latsK)
-
-	xvelG[where(ma.getmask(xvelG))]=np.nan
-	yvelG[where(ma.getmask(yvelG))]=np.nan
-	driftKday=stack((xvelG, yvelG))
 
 
-	return xptsK, yptsK, driftKday, lonsK, latsK
-
-def getFowlerDrift(file,lon):
-	
-	fd = open(file, 'rb')
-	motionDat = fromfile(file=fd, dtype='<i2')
-	motionDat = reshape(motionDat, [361, 361, 3])
-
-	xt = motionDat[:, :, 0]/1000.
-	yt = motionDat[:, :, 1]/1000.         
-	q = motionDat[:, :, 2]/1000.
-
-	mask = where((q<=0) | (q>1), 0, 1)
-
-	xt = ma.masked_where(mask<0.5, xt)
-	yt = ma.masked_where(mask<0.5, yt)
-
-
-	alpha = lon*pi/180.
-	uvelT = yt*sin(alpha) + xt*cos(alpha)
-	vvelT = yt*cos(alpha) - xt*sin(alpha) 
-
-	return uvelT, vvelT
-
-def smoothDriftDaily(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigmaG=0.75):
-	from scipy.ndimage.filters import gaussian_filter
+def int_smooth_drifts(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=0.75):
 	
 	nx=xptsG.shape[0]
 	ny=xptsG.shape[1]
 
 	driftFG=ma.masked_all((2, nx, ny))
-	#driftFGK=ma.masked_all((2, nx, ny))
 
-
+	# Bodge way of making a mask
 	badData = np.zeros((xptsF.shape))
-	badData[where(np.isnan(driftFmon[1]) & (latsF>88))]=1
+	# & (latsF>88)) if we want to mask the pole hole
+	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
 
-	driftFx = driftFmon[0][where(badData<0.5)]
-	driftFy = driftFmon[1][where(badData<0.5)]
-	xptsFM = xptsF[where(badData<0.5)]
+	driftFx = driftFmon[0][np.where(badData<0.5)]
+	driftFy = driftFmon[1][np.where(badData<0.5)]
+	xptsFM = xptsF[np.where(badData<0.5)]
 
-	yptsFM = yptsF[where(badData<0.5)]
+	yptsFM = yptsF[np.where(badData<0.5)]
 
 	driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
 	driftFGy = griddata((xptsFM, yptsFM), driftFy, (xptsG, yptsG), method='linear')
@@ -157,11 +88,13 @@ def smoothDriftDaily(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigmaG=0.75):
 	driftFGx[np.isnan(driftFGx)]=0
 	driftFGy[np.isnan(driftFGy)]=0
 
-	driftFGxg = gaussian_filter(driftFGx, sigma=sigmaG)
-	driftFGyg = gaussian_filter(driftFGy, sigma=sigmaG)
+	driftFGxg = gaussian_filter(driftFGx, sigma=sigma_factor)
+	driftFGyg = gaussian_filter(driftFGy, sigma=sigma_factor)
 
 	driftFG[0]=ma.masked_where(np.isnan(driftFGxN), driftFGxg)
 	driftFG[1]=ma.masked_where(np.isnan(driftFGyN), driftFGyg)
+	
+
 	return driftFG
 
 def getOSISAFDrift(m, fileT):
@@ -172,14 +105,14 @@ def getOSISAFDrift(m, fileT):
 	"""
 
 	f = Dataset(fileT, 'r')
-	print fileT
+	print(fileT)
 
         # read lat/lon (start points) and lat1/lon1 (end points)
 	lon = (f.variables['lon'][:])
 	lon1 = (f.variables['lon1'][0])
 	lat = (f.variables['lat'][:])
 	lat1 = (f.variables['lat1'][0])
-        f.close()
+	f.close()
 
 	# transform to map project coordinates (basemap's axes, assume they have unit of m)
 	x0, y0=m(lon, lat)
@@ -197,6 +130,42 @@ def getOSISAFDrift(m, fileT):
         # compute magnitude (speed scalar)
 	mag=sqrt(xt**2+yt**2)
         #print mag.mean(), mag.min(), mag.max()
+
+	return xt, yt, mag, lat, lon, xpts, ypts
+
+def get_osisaf_drifts_proj(proj, fileT):
+	"""
+	Calculate the OSI-SAF vectors on our given map projection
+	With help from Thomas Lavergne!
+
+	v2: based on getOSISAFdrift but using pyproj instead of basemap 
+
+	"""
+	f = Dataset(fileT, 'r')
+	print(fileT)
+
+    # read lat/lon (start points) and lat1/lon1 (end points)
+	lon = (f.variables['lon'][:])
+	lon1 = (f.variables['lon1'][0])
+	lat = (f.variables['lat'][:])
+	lat1 = (f.variables['lat1'][0])
+	f.close()
+
+	# transform to map project coordinates (basemap's axes, assume they have unit of m)
+	x0, y0=proj(lon, lat)
+	x1, y1=proj(lon1, lat1)
+
+	xpts=(x0+x1)/2.
+	ypts=(y0+y1)/2.
+
+	# normalize drift components to m/s (x1-x0 is already m, so we just divide by 2-days worth of seconds)
+	xt=(x1-x0)/(60*60*24*2.)
+	yt=(y1-y0)/(60*60*24*2.)
+
+	# TL: no need to rotate : the xt, and yt are already in the basemap's projection
+
+	# compute magnitude (speed scalar)
+	mag=np.sqrt(xt**2+yt**2)
 
 	return xt, yt, mag, lat, lon, xpts, ypts
 
@@ -242,8 +211,8 @@ def getFowlerLonLat(mF, rawdatapath):
     # need to use Fowler map to ensure drifts are orientated correctly
     fowlerPath = rawdatapath+'/ICE_DRIFT/FOWLER/'
     lonlatF = loadtxt(fowlerPath+'/north_x_y_lat_lon.txt')
-    lonsF = np.reshape(lonlatF[:, 3], (361, 361))
-    latsF = np.reshape(lonlatF[:, 2], (361, 361))
+    lonsF = np.np.reshape(lonlatF[:, 3], (361, 361))
+    latsF = np.np.reshape(lonlatF[:, 2], (361, 361))
     xptsF, yptsF = mF(lonsF, latsF)
 
     return latsF, lonsF, xptsF, yptsF
@@ -277,14 +246,14 @@ def get_day_concSN_NRT(datapath, year, month, day, alg=0, pole='A', vStr='v1.1',
 	
 	files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/NRT/*'+str(year)+month_str+day_str+'*')
 	if (size(files)>0):
-		print 'Same day conc file exists:'
+		print('Same day conc file exists:')
 
 	if (size(files)==0):
 		# first try day before
 		day_str = '%02d' % (day)
 		files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/NRT/*'+str(year)+month_str+day_str+'*')
 		if (size(files)>0):
-			print 'Using day before file:'
+			print('Using day before file:')
 
 	# If still nothing try day after
 	if (size(files)==0):
@@ -292,14 +261,14 @@ def get_day_concSN_NRT(datapath, year, month, day, alg=0, pole='A', vStr='v1.1',
 		day_str = '%02d' % (day+2)
 		files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/NRT/*'+str(year)+month_str+day_str+'*')
 		if (size(files)>0):
-			print 'Using day after file:'
+			print('Using day after file:')
 
 	
 	fd = open(files[0], 'r')
 	data = fromfile(file=fd, dtype=datatype)
 	data = data[header:]
 	#FIRST 300 FILES ARE HEADER INFO
-	ice_conc = reshape(data, [rows, cols])
+	ice_conc = np.reshape(data, [rows, cols])
 	#divide by 250 to express in concentration
 	ice_conc = ice_conc/scale_factor
 	#GREATER THAN 250 is mask/land etc
@@ -346,15 +315,15 @@ def get_month_concSN_daily(datapath, year, month, alg=0, pole='A', vStr='v1.1', 
 	files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/daily/'++str(year)+'/'+team_s+'_'+str(year)+month_str+'*'+vStr+'*')
 	
 
-	print 'Num conc files:', size(files), 'in month:'+month_str
+	print('Num conc files:', size(files), 'in month:'+month_str)
 	ice_conc = ma.masked_all((size(files), rows, cols))
 	
-	for x in xrange(size(files)):
+	for x in range(size(files)):
 		fd = open(files[x], 'r')
 		data = fromfile(file=fd, dtype=datatype)
 		data = data[header:]
 		#FIRST 300 FILES ARE HEADER INFO
-		ice_conc[x] = reshape(data, [rows, cols])
+		ice_conc[x] = np.reshape(data, [rows, cols])
 		
 	#divide by 250 to express in concentration
 	ice_conc = ice_conc/scale_factor
@@ -374,15 +343,7 @@ def get_month_concSN_daily(datapath, year, month, alg=0, pole='A', vStr='v1.1', 
 
 	return ice_conc
 
-
-
 def get_ERA_precip_days(m, dataPath, yearT, dayT, varStr='tp'):
-
-	leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
-	daysInYr=[365, 365, 366, 365, 365, 365, 366, 365, 365, 365, 366, 365, 365, 365, 366]
-	#f1 = Dataset(dataPath+'REANALYSES/ERAI/EraInterim_Snow_2002_to_2016.nc', 'r')
-
-	#f1 = Dataset(dataPath+'REANALYSES/ERAI/EraInterim_Snow_2002_to_2016.nc', 'r')
 	
 	f1 = Dataset(dataPath+'REANALYSES/ERAI/ERAI_'+varStr+'_'+str(yearT)+'.nc', 'r')
 
@@ -392,20 +353,21 @@ def get_ERA_precip_days(m, dataPath, yearT, dayT, varStr='tp'):
 
 	lon = f1.variables['longitude'][:]
 
-	#0:60 as just want to extrat the higher latitiudes. Repeat this in the variable extraction too.
+
 	lat = f1.variables['latitude'][:]
 	#print lat[1]-lat[0]
-	lowerLatidx=int(45./(lat[0]-lat[1]))
+
+	# just get data above 45N
+	lowerLatidx=int(90-45./(lat[0]-lat[1]))
 	#print lowerLatidx
 	lat=lat[0:lowerLatidx]
 	xpts, ypts=m(*np.meshgrid(lon, lat))
 
-	
 	numday=dayT
 
 	#in units of m of water so times by 1000, the density of water, to express this as kg/m2
 	# data is every 12-hours, so need to multiply numdays by 2, then also sum over the first two time intervals
-	varT=f1.variables[varStr][numday*2:(numday*2)+2, 0:lowerLatidx, :].astype(float16)*1000.
+	varT=f1.variables[varStr][numday*2:(numday*2)+2, 0:lowerLatidx, :].astype(np.float16)*1000.
 	var=sum(varT, axis=0)
 
 	return xpts, ypts, lon, lat, var
@@ -413,11 +375,7 @@ def get_ERA_precip_days(m, dataPath, yearT, dayT, varStr='tp'):
 
 def get_ERA_wind_days(m, dataPath, yearT, dayT):
 
-	leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
-	daysInYr=[365, 365, 366, 365, 365, 365, 366, 365, 365, 365, 366, 365, 365, 365, 366]
-	#f1 = Dataset(dataPath+'REANALYSES/ERAI/EraInterim_Snow_2002_to_2016.nc', 'r')
-
-	print dataPath+'REANALYSES/ERAI/ERAI_'+'winds'+'_'+str(yearT)+'.nc'
+	print(dataPath+'REANALYSES/ERAI/ERAI_'+'winds'+'_'+str(yearT)+'.nc')
 	f1 = Dataset(dataPath+'REANALYSES/ERAI/ERAI_'+'winds'+'_'+str(yearT)+'.nc', 'r')
 
 
@@ -430,314 +388,265 @@ def get_ERA_wind_days(m, dataPath, yearT, dayT):
 
 	#numYears = yearT-2009
 	numday= dayT
-	print numday
+	print(numday)
 
 	# data is every 6-hours, so need to multiply numdays by 4, then also sum over the first four time intervals
 	# only pick out the first 60 rows as want Arctic data only
-	u10=f1.variables['u10'][numday*4:(numday*4)+4, 0:60, :].astype(float16)
-	v10=f1.variables['v10'][numday*4:(numday*4)+4, 0:60, :].astype(float16)
+	u10=f1.variables['u10'][numday*4:(numday*4)+4, 0:60, :].astype(np.float16)
+	v10=f1.variables['v10'][numday*4:(numday*4)+4, 0:60, :].astype(np.float16)
 	mag=mean(sqrt((u10**2)+(v10**2)), axis=0)
 
 	return xpts, ypts, lon, lat, mag
 
+def get_ERA5_precip_days_pyproj(proj, era5_data_path, yearStr, monStr, numday, lowerlatlim=0, varStr='sf'):
 
-def plotSnow(m, xpts , ypts, var_mag, shading='flat', out='./figure', units_lab='units', units_vec=r'm s$^{-1}$',
- minval=1., maxval=1., base_mask=0,res=1, scale_vec=1, vector_val=1, date_string='year', month_string='months', extra='',cbar_type='both', cmap_1=plt.cm.RdBu_r, norm=0):
+	print(yearStr, monStr, numday)
 
-    #PLOT SCALAR FIELD WITH OVERLYING VECTORS. 
-    #VAR MAG MAY NOT NECCESARRILY BE THE MAGNITUDE OF THE VECTORS (E.G. IN THE CASE OF WIND CURL)
-	rcParams['ytick.major.size'] = 2
-	rcParams['axes.linewidth'] = .25
-	rcParams['lines.linewidth'] = .25
-	rcParams['patch.linewidth'] = .25
-	rcParams['ytick.labelsize']=8
-	rcParams['legend.fontsize']=8
-	rcParams['font.size']=8 
-	rc('font',**{'family':'sans-serif','sans-serif':['Arial']})
+	f1 = Dataset(era5_data_path+'/ERA5_'+varStr+'_'+yearStr+monStr+'cds.nc', 'r')
 
-	#print 'Plotting'
-	fig = figure(figsize=(4.,4.))
-	ax1=gca()
+	# Units given in m of freshwater in the previous 1 hour period. 
+	# So to convert to kg/m2/s multiply by den
+	#var=var*1000./(60.*60.*12.)
 
-	cmap=cmap_1
-	#cmap.set_under('w')
-	#var_mag=ma.masked_where(var_mag<1e8, var_mag)
-	if (norm==1):
-		#print 'Norm:', norm
-		norm=MidPointNorm_Good(midpoint=0)
-		im1 = m.pcolormesh(xpts , ypts, var_mag, norm=norm, cmap=cmap,vmin=minval, vmax=maxval,shading=shading, edgecolors='None', zorder=4, rasterized=True)
+	lon = f1.variables['longitude'][:]
+	
+	lat = f1.variables['latitude'][:]
+	
+	#print lat[1]-lat[0]
+	lowerLatidx=int((90-lowerlatlim)/(lat[0]-lat[1]))
+	#print lowerLatidx
+	lat=lat[0:lowerLatidx]
+
+	# Had to switch lat and lon around when using proj!
+	xpts, ypts=proj(*np.meshgrid(lon, lat))
+
+	# in units of m of water so times by 1000, the density of water, to express this as kg/m2
+	# data is every 1 hour (starting at 1 am on the first day of each month), so sum over the first 24 time intervals 
+	#(index 0=1am to 23=midnight)
+
+	varT=f1.variables[varStr][(numday*24):(numday*24)+24, 0:lowerLatidx, :].astype(np.float16)*1000.
+	
+	var=np.sum(varT, axis=0)
+
+	return xpts, ypts, lon, lat, var
+
+def get_ERA5_wind_days_pyproj(proj, era5_data_path, yearStr, monStr, numday, freq=6, lowerlatlim=0):
+
+	print(yearStr, monStr, numday)
+
+	f1 = Dataset(era5_data_path+'/ERA5_winds_'+yearStr+monStr+'cds.nc', 'r')
+
+	lon = f1.variables['longitude'][:]
+	
+	lat = f1.variables['latitude'][:]
+	
+	#print lat[1]-lat[0]
+	lowerLatidx=int((90-lowerlatlim)/(lat[0]-lat[1]))
+	#print lowerLatidx
+	lat=lat[0:lowerLatidx]
+
+	# Had to switch lat and lon around when using proj!
+	xpts, ypts=proj(*np.meshgrid(lon, lat))
+
+	# data is every 1 hour (starting at 1 am on the first day of each month), so sum over the first 24 time intervals 
+	#(index 0=1am to 23=midnight)
+	# data is every hour
+
+	u10=f1.variables['u10'][(numday*24):(numday*24)+24:freq, 0:lowerLatidx, :].astype(np.float16)
+	v10=f1.variables['v10'][(numday*24):(numday*24)+24:freq, 0:lowerLatidx, :].astype(np.float16)
+	mag=np.mean(np.sqrt((u10**2)+(v10**2)), axis=0)
+
+
+	return xpts, ypts, lon, lat, mag
+
+
+def create_grid(epsg_string='3413', dxRes=50000, lllat=36, llon=-90, urlat=36, urlon=90):
+	""" Use pyproj to generate a grid covering the given domain (defined by the projection and the corner lat/lons)"""
+
+	crs = pyproj.CRS.from_string("epsg:"+epsg_string)
+	p=pyproj.Proj(crs)
+	llcrn=p(llon, lllat)
+	urcrn=p(urlon, urlat)
+
+	print(llcrn)
+	print(urcrn)
+
+	nx = int((urcrn[0]-llcrn[0])/dxRes)+1
+	ny = int((urcrn[1]-llcrn[1])/dxRes)+1
+	print(nx, ny)
+
+	x = llcrn[0]+dxRes*np.indices((ny,nx),np.float32)[0] # 1=column indicdes
+	y = llcrn[1]+dxRes*np.indices((ny,nx),np.float32)[1] # 0=row indices
+
+	lons, lats = p(x, y, inverse=True)
+	
+	return x, y, lats, lons, p
+
+def get_ERA5_meltduration(m, dataPath, yearT):
+
+
+	glob(dataPath+'REANALYSES/ERA5/ERA5_temp6hour'+'_'+str(yearT)+'*cds.nc')
+
+	numDaysYearT=size(f1.variables['time'][:])/4
+	print(numDaysYearT)
+
+	lon = f1.variables['longitude'][:]
+	lat = f1.variables['latitude'][:]
+	lowerLatidx=int(45./(lat[0]-lat[1]))
+	print(lowerLatidx)
+	lat=lat[0:lowerLatidx]
+
+	xpts, ypts=m(*np.meshgrid(lon, lat))
+
+
+	# data is every 6-hours, so need to multiply numdays by 4, then also sum over the first four time intervals
+	# only pick out the first 60 rows as want Arctic data only
+	temp2mAnnual=ma.masked_all((numDaysYearT, lowerLatidx, lon.shape[0]))
+	for x in range(numDaysYearT):
+		temp2mAnnual[x]=mean(f1.variables['t2m'][x*4:(x*4)+4, 0:lowerLatidx, :].astype(float16), axis=0)-273.15
+
+
+	return xpts, ypts, lon, lat, temp2mAnnual
+
+def getCDRconcproj(proj, fileT, mask=1, maxConc=0, lowerConc=0):
+	"""
+	Grab the CDR ice concentration
+
+	"""
+
+	f = Dataset(fileT, 'r')
+	print(fileT)
+
+        # read lat/lon (start points) and lat1/lon1 (end points)
+	lon = (f.variables['longitude'][:])
+	lat = (f.variables['latitude'][:])
+	# Convert percent to conc!
+	conc = (f.variables['seaice_conc_cdr'][0])
+	f.close()
+
+	if (mask==1):
+		conc = ma.masked_where(conc>1., conc)
+	
+	if (maxConc==1):
+		conc = ma.where(conc>1.,0, conc)
+
+	if (lowerConc==1):
+		conc = ma.where(conc<0.15,0, conc)
+
+	# transform to map project coordinates (basemap's axes, assume they have unit of m)
+	x0, y0=proj(lon, lat)
+	
+	return conc, lat, lon, x0, y0
+
+
+def read_icebridge_snowdepths(proj, dataPath, year, mask=1):
+	"""Script to read in (quicklook and final) icebridge sea ice data"""
+
+	xpts_total=[] 
+	ypts_total=[]
+	snow_thickness_days=[]
+	dates=[]
+	if (year>2013):
+		files = glob(dataPath+'/quicklook/*'+str(year)+'*/*.txt')
 	else:
-		im1 = m.pcolormesh(xpts , ypts, var_mag, cmap=cmap,vmin=minval, vmax=maxval,shading=shading, edgecolors='None', zorder=4, rasterized=True)
+		files = glob(dataPath+'/final/*'+str(year)+'*/*.txt')
 	
-	# LOWER THE SCALE THE LARGER THE ARROW
-	#im1c = m.contour(xptsC , yptsC, conc_mean, levels=[0.15], zorder=5)
+	for x in range(np.size(files)):
+		data = np.genfromtxt(files[x], delimiter=',', skip_header=1, dtype=str)
+		# data is a table-like structure (a numpy recarray) in which you can access columns and rows easily
+		lats = data[:, 0].astype(float)
+		lons = data[:, 1].astype(float)
+		snow_thickness = data[:, 7].astype(float)
+		xpts,ypts = proj(lons, lats)
 
+		date=files[x][-12:-4]
 
-	m.drawparallels(np.arange(90,-90,-10), linewidth = 0.25, zorder=10)
-	m.drawmeridians(np.arange(-180.,180.,30.), linewidth = 0.25, zorder=10)
-	#m.drawmapboundary(fill_color='0.3')
-	#m.drawmapboundary(fill_color='0.4' , zorder=1)
-	if base_mask==1:
-	#m.drawmapboundary(fill_color='0.4' , zorder=1)
-	    m.fillcontinents(color='0.7',lake_color='grey', zorder=5)
+		if (mask==1):
+			good_data=np.where((snow_thickness>=0.)&(snow_thickness<=2.))
+			snow_thickness = snow_thickness[good_data]
+			xpts = xpts[good_data]
+			ypts = ypts[good_data]
+
+		xpts_total.append(xpts)
+		ypts_total.append(ypts)
+		snow_thickness_days.append(snow_thickness)
+		dates.append(date)
+
+	return xpts_total, ypts_total, dates, snow_thickness_days
 	
-	#m.drawcoastlines(linewidth=0.25, zorder=10)
-
-	ax1.annotate(date_string, xy=(0.4, 0.93),xycoords='axes fraction', horizontalalignment='left', verticalalignment='bottom', fontsize=10, zorder=10)
 
 
-	#ADD COLORBAR TO MAP
-	cax = fig.add_axes([0.72, 0.95, 0.22, 0.03])
+def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', varStr='',
+ minval=1., maxval=1., date_string='', month_string='', extra='',cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
 
-	#cax = fig.add_axes([0.1, 0.1, 0.8, 0.04])
-	cbar = colorbar(im1,cax=cax, orientation='horizontal', extend=cbar_type, use_gridspec=True)
-	cbar.set_label(units_lab)
-	cbar.set_ticks([minval, maxval])
+	#proj = ccrs.epsg(epsg_string)
+	#proj = ccrs.LambertAzimuthalEqualArea(central_longitude=0.0, central_latitude=90, false_easting=0.0, false_northing=0.0, globe=None)
+	
+	# The projection keyword determines how the plot will look
+	fig=plt.figure(figsize=(5, 6))
+	ax = plt.axes(projection = proj)
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	cs=ax.pcolormesh(lons, lats, var, vmin=minval, vmax=maxval, transform=ccrs.PlateCarree(), zorder=2)
+	ax.coastlines(zorder=3)
+	ax.gridlines(draw_labels=True,
+              linewidth=0.22, color='gray', alpha=0.5, linestyle='--')
+	
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	# for some reason this extent can freak out if you set 180 to 180
+	ax.set_extent([-179, 179, 50, 90], ccrs.PlateCarree())
+	cax,kw = mcbar.make_axes(ax,location='bottom',pad=0.05,shrink=0.7)
+	cb=fig.colorbar(cs,cax=cax,extend='both',**kw)
+	cb.set_label(varStr+' ('+units_lab+')',size=8)
+	ax.set_title(varStr+' '+date_string+month_string+extra)
 
-   
-
-	subplots_adjust(bottom=0.0, left=0.0, top = 0.99, right=1.0)
+	plt.tight_layout()
 	#print 'Saving..'
-	savefig(out+'.png', dpi=150)
-	close(fig)
-#plot vector map (with vectors in x/y directions)
+	plt.savefig(out+'.png', dpi=200)
+	plt.close(fig)
 
-def get_region_maskPSsnow(datapath, mplot, xypts_return=0):
-	header = 300
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/region_n.msk'
+def plot_drift_cartopy(lons, lats, xpts, ypts, var_u, var_v, var_mag, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', units_vec='', varStr='',
+ minval=1., maxval=1., date_string='year', month_string='months', extra='', res=2, scale_vec=1, vector_val=1, cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
+
+	#proj = ccrs.epsg(epsg_string)
+	#proj = ccrs.LambertAzimuthalEqualArea(central_longitude=0.0, central_latitude=90, false_easting=0.0, false_northing=0.0, globe=None)
 	
-	region_lonlat = [80, 180, 70, 82]
-	fd = open(file_mask, 'rb')
-	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask[header:], [448, 304])
+	# The projection keyword determines how the plot will look
+	fig=plt.figure(figsize=(5, 6))
+	ax = plt.axes(projection = proj)
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	cs = ax.pcolormesh(lons, lats, var_mag, vmin=minval, vmax=maxval, transform=ccrs.PlateCarree(), zorder=2)
 
-	mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-	mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-	region_maskCA=np.zeros((lons_mask.shape))
-	mask = where((lons_mask>region_lonlat[0]) & (lons_mask<region_lonlat[1]) & (lats_mask>region_lonlat[2]) & (lats_mask<region_lonlat[3])& (region_mask<11))
-	region_maskCA[mask]=1
-
-	if (xypts_return==1):
-
-		xpts, ypts = mplot(lons_mask, lats_mask)
-
-		return region_maskCA, xpts, ypts
-	else:
-		return region_maskCA
-
-
-def get_region_maskNAsnow(datapath, mplot, xypts_return=0):
-	header = 300
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/region_n.msk'
+	Q = ax.quiver(xpts[::res, ::res], ypts[::res, ::res], var_u[::res, ::res], var_v[::res, ::res], units='inches',scale=scale_vec, zorder=5)
 	
-	region_lonlat = [-20, 55, 72, 85]
-	fd = open(file_mask, 'rb')
-	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask[header:], [448, 304])
+	ax.coastlines(zorder=3)
+	ax.gridlines(draw_labels=True,
+              linewidth=0.22, color='gray', alpha=0.5, linestyle='--')
+	
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	# for some reason this extent can freak out if you set 180 to 180
+	ax.set_extent([-179, 179, 50, 90], ccrs.PlateCarree())
+	cax,kw = mcbar.make_axes(ax,location='bottom',pad=0.05,shrink=0.7)
+	cb=fig.colorbar(cs,cax=cax,extend='both',**kw)
+	cb.set_label(varStr+units_lab,size=8)
+	ax.set_title(' '+varStr+' '+date_string+month_string+extra)
 
-	mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-	mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+	qk = plt.quiverkey(Q, 3389969, 3389969, vector_val, str(vector_val)+' '+units_vec, coordinates='data', zorder = 11)   
 
-	region_maskCA=np.zeros((lons_mask.shape))
-	mask = where((lons_mask>region_lonlat[0]) & (lons_mask<region_lonlat[1]) & (lats_mask>region_lonlat[2]) & (lats_mask<region_lonlat[3])&(region_mask<11))
-	region_maskCA[mask]=1
 
-	if (xypts_return==1):
+	plt.tight_layout()
+	#print 'Saving..'
+	plt.savefig(out+'.png', dpi=200)
+	plt.close(fig)
 
-		xpts, ypts = mplot(lons_mask, lats_mask)
 
-		return region_maskCA, xpts, ypts
-	else:
-		return region_maskCA
-
-class MidPointNorm_Good(Normalize):    
-    def __init__(self, midpoint=0, vmin=None, vmax=None, clip=False):
-        Normalize.__init__(self,vmin, vmax, clip)
-        self.midpoint = midpoint
-
-    def __call__(self, value, clip=None):
-        if clip is None:
-            clip = self.clip
-
-        result, is_scalar = self.process_value(value)
-
-        self.autoscale_None(result)
-        vmin, vmax, midpoint = self.vmin, self.vmax, self.midpoint
-
-        if not (vmin < midpoint < vmax):
-            raise ValueError("midpoint must be between maxvalue and minvalue.")       
-        elif vmin == vmax:
-            result.fill(0) # Or should it be all masked? Or 0.5?
-        elif vmin > vmax:
-            raise ValueError("maxvalue must be bigger than minvalue")
-        else:
-            vmin = float(vmin)
-            vmax = float(vmax)
-            if clip:
-                mask = ma.getmask(result)
-                result = ma.array(np.clip(result.filled(vmax), vmin, vmax),
-                                  mask=mask)
-
-            # ma division is very slow; we can take a shortcut
-            resdat = result.data
-
-            #First scale to -1 to 1 range, than to from 0 to 1.
-            resdat -= midpoint            
-            resdat[resdat>0] /= abs(vmax - midpoint)            
-            resdat[resdat<0] /= abs(vmin - midpoint)
-
-            resdat /= 2.
-            resdat += 0.5
-            result = ma.array(resdat, mask=result.mask, copy=False)                
-
-        if is_scalar:
-            result = result[0]            
-        return result
-
-    def inverse(self, value):
-        if not self.scaled():
-            raise ValueError("Not invertible until scaled")
-        vmin, vmax, midpoint = self.vmin, self.vmax, self.midpoint
-
-        if mpl.cbook.iterable(value):
-            val = ma.asarray(value)
-            val = 2 * (val-0.5)  
-            val[val>0]  *= abs(vmax - midpoint)
-            val[val<0] *= abs(vmin - midpoint)
-            val += midpoint
-            return val
-        else:
-            val = 2 * (val - 0.5)
-            if val < 0: 
-                return  val*abs(vmin-midpoint) + midpoint
-            else:
-                return  val*abs(vmax-midpoint) + midpoint
 def get_psnlatslons(data_path):
 	mask_latf = open(data_path+'/OTHER/psn25lats_v3.dat', 'rb')
 	mask_lonf = open(data_path+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+	lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+	lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
 
 	return lats_mask, lons_mask
 
-def get_region_mask_sect(datapath, mplot, xypts_return=0):
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/sect_fixed_n.msk'
-	# 1   non-region oceans
-	# ;           = 2   Sea of Okhotsk and Japan
-	# ;           = 3   Bering Sea
-	# ;           = 4   Hudson Bay
-	# ;           = 5   Gulf of St. Lawrence
-	# ;           = 6   Baffin Bay/Davis Strait/Labrador Sea
-	# ;           = 7   Greenland Sea
-	# ;           = 8   Barents Seas
-	# ;           = 9   Kara
-	# ;           =10   Laptev
-	# ;           =11   E. Siberian
-	# ;           =12   Chukchi
-	# ;           =13   Beaufort
-	# ;           =14   Canadian Archipelago
-	# ;           =15   Arctic Ocean
-	# ;           =20   Land
-	# ;           =21   Coast
-	fd = open(file_mask, 'rb')
-	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask, [448, 304])
-
-	#mask_latf = open('/Volumes/GRAID_NASA/NOAA/DATA/ICE_CONC/BOOTSTRAP/psn25lats_v3.dat', 'rb')
-	#mask_lonf = open('/Volumes/GRAID_NASA/NOAA/DATA/ICE_CONC/BOOTSTRAP/psn25lons_v3.dat', 'rb')
-	#lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	#lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-	#xpts, ypts = mplot(lons_mask, lats_mask)
-	if (xypts_return==1):
-		mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-		mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-		lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-		lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-		xpts, ypts = mplot(lons_mask, lats_mask)
-
-		return region_mask, xpts, ypts
-	else:
-		return region_mask
-
-
-def get_day_concSN_daily(datapath, year, month, day, alg=0, pole='A', vStr='v03', mask=1, maxConc=0, lowerConc=0, monthMean=0):
-	if (alg==0):
-		team = 'NASA_TEAM'
-		team_s = 'nt'
-		header = 300
-		datatype='uint8'
-		scale_factor=250.
-	if (alg==1):
-		team = 'BOOTSTRAP'
-		team_s = 'bt'
-		header = 0
-		datatype='<i2'
-		scale_factor=1000.
-	
-	if (pole=='A'):
-		poleStr='ARCTIC'
-		rows=448
-		cols=304
-	if (pole=='AA'):
-		poleStr='ANTARCTIC'
-		rows=332
-		cols=316
-
-	month_str = '%02d' % (month+1)
-	day_str = '%02d' % (day+1)
-	year_str=str(year)
-	files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/daily/'+vStr+'/'+str(year)+'/'+team_s+'_'+str(year)+month_str+day_str+'*'+vStr+'*')
-	if (size(files)>0):
-		print ('Same day conc file exists:')
-
-	if (size(files)==0):
-		# first try day before
-		day_str = '%02d' % (day)
-		files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/daily/'+vStr+'/'+str(year)+'/'+team_s+'_'+str(year)+month_str+day_str+'*'+vStr+'*')
-		if (size(files)>0):
-			print ('Using day before file:')
-
-	# If still nothing try day after
-	if (size(files)==0):
-		# try day after
-		day_str = '%02d' % (day+2)
-		files = glob(datapath+'/ICE_CONC/'+team+'/'+poleStr+'/daily/'+vStr+'/'+str(year)+'/'+team_s+'_'+str(year)+month_str+day_str+'*'+vStr+'*')
-		if (size(files)>0):
-			print ('Using day after file:')
-
-	
-	fd = open(files[0], 'r')
-	data = fromfile(file=fd, dtype=datatype)
-	data = data[header:]
-	#FIRST 300 FILES ARE HEADER INFO
-	ice_conc = reshape(data, [rows, cols])
-	#divide by 250 to express in concentration
-	ice_conc = ice_conc/scale_factor
-	#GREATER THAN 250 is mask/land etc
-
-	if (mask==1):
-		ice_conc = ma.masked_where(ice_conc>1., ice_conc)
-	
-	if (maxConc==1):
-		ice_conc = ma.where(ice_conc>1.,0, ice_conc)
-
-	if (lowerConc==1):
-		ice_conc = ma.where(ice_conc<0.15,0, ice_conc)
-
-	if (monthMean==1):
-		ice_conc=ma.mean(ice_conc, axis=0)
-
-	return ice_conc
 
 
 def get_pmask(year, month):
@@ -763,51 +672,24 @@ def get_region_maskAOsnow(datapath, mplot, xypts_return=0, latN=60):
 	
 	fd = open(file_mask, 'rb')
 	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask[header:], [448, 304])
+	region_mask = np.reshape(region_mask[header:], [448, 304])
 
 	mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
 	mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+	lats_mask = np.reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+	lons_mask = np.reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
 
-	region_maskCA=np.zeros((lons_mask.shape))
+	region_maskAO=np.zeros((lons_mask.shape))
 	mask = where((region_mask<11) & (lats_mask>latN))
-	region_maskCA[mask]=1
+	region_maskAO[mask]=1
 
 	if (xypts_return==1):
 
 		xpts, ypts = mplot(lons_mask, lats_mask)
 
-		return region_maskCA, xpts, ypts
+		return region_maskAO, xpts, ypts
 	else:
-		return region_maskCA
-
-def get_region_maskCAsnow(datapath, mplot, xypts_return=0):
-	header = 300
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/region_n.msk'
-	
-	region_lonlat = [-150, -20, 78, 88]
-	fd = open(file_mask, 'rb')
-	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask[header:], [448, 304])
-
-	mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-	mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-	region_maskCA=np.zeros((lons_mask.shape))
-	mask = where((lons_mask>region_lonlat[0]) & (lons_mask<region_lonlat[1]) & (lats_mask>region_lonlat[2]) & (lats_mask<region_lonlat[3])& (region_mask==8))
-	region_maskCA[mask]=1
-
-	if (xypts_return==1):
-
-		xpts, ypts = mplot(lons_mask, lats_mask)
-
-		return region_maskCA, xpts, ypts
-	else:
-		return region_maskCA
+		return region_maskAO
 
 def getGrid(outPath, dx):
   """Get model grid data"""
@@ -850,7 +732,7 @@ def getSTOSIWIGday(m, dayFiles, delim, mask_hs=1):
 
   for fileT in dayFiles:
     #print 'File:', fileT
-    print fileT
+    print (fileT)
     data = genfromtxt(fileT, delimiter=delim, skip_header=0, dtype=float)
     # data is a table-like structure (a numpy recarray) in which you can access columns and rows easily
     lats = data[:, 1].astype(float)
@@ -893,9 +775,9 @@ def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
     delim=','
     endStr='srld'
 
-  print snowTypeT, yearT
+  print(snowTypeT, yearT)
   folders = glob(dataPath+'/ICEBRIDGE/STOSIWIG/'+snowTypeT+'/'+str(yearT)+'*')
-  print 'folders', folders
+  print ('folders', folders)
   datesY=[folder[-8:] for folder in folders]
 
 
@@ -918,6 +800,29 @@ def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
 
   return xptsY, yptsY, latsY, lonsY, snowY, datesY
 
+def getWarren(lonT, latT, monthT):
+	H_0 = [28.01, 30.28, 33.89, 36.8, 36.93, 36.59, 11.02, 4.64, 15.81, 22.66, 25.57, 26.67]
+	a = [.127, .1056, .5486, .4046, .0214, .7021, .3008, .31, .2119, .3594, .1496, -0.1876]
+	b = [-1.1833, -0.5908, -0.1996, -0.4005, -1.1795, -1.4819, -1.2591, -0.635, -1.0292, -1.3483, -1.4643, -1.4229]
+	c = [-0.1164, -0.0263, 0.0280, 0.0256, -0.1076, -0.1195, -0.0811, -0.0655, -0.0868, -0.1063, -0.1409, -0.1413]
+	d = [-0.0051, -0.0049, 0.0216, 0.0024, -0.0244, -0.0009, -0.0043, 0.0059, -0.0177, 0.0051, -0.0079, -0.0316]
+	e = [0.0243, 0.0044, -0.0176, -0.0641, -0.0142, -0.0603, -0.0959, -0.0005, -0.0723, -0.0577, -0.0258, -0.0029]
+
+	#Convert lat and lon into degrees of arc, +x axis along 0 degrees longitude and +y axis along 90E longitude
+	x = (90.0 - latT)*np.cos(lonT * np.pi/180.0)	
+
+	# To convert lat lon values into proper x and y coordinates
+	y = (90.0 - latT)*np.sin(lonT * np.pi/180.0) 
+
+	Hsw = H_0[monthT] + a[monthT]*x + b[monthT]*y + c[monthT]*x*y + (d[monthT]*x*x) + (e[monthT]*y*y)
+	#Hsw=Hsw/100.
+
+
+	#Hsw[where(region_maskG<9.6)]=np.nan
+	#Hsw[where(region_maskG==14)]=np.nan
+	#Hsw[where(region_maskG>15.5)]=np.nan
+
+	return np.array(Hsw)
 
 def bindataN(x, y, z, xG, yG, binsize=0.01, retbin=True, retloc=True):
     """
@@ -1093,16 +998,55 @@ def get_region_mask(datapath, mplot, xypts_return=0):
 	#11 - Land
 
 	fd = open(file_mask, 'rb')
-	region_mask = fromfile(file=fd, dtype=datatype)
-	region_mask = reshape(region_mask[header:], [448, 304])
+	region_mask = np.fromfile(file=fd, dtype=datatype)
+	region_mask = np.reshape(region_mask[header:], [448, 304])
 
 	if (xypts_return==1):
 		mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
 		mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-		lats_mask = reshape(fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-		lons_mask = reshape(fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+		lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+		lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
 
 		xpts, ypts = mplot(lons_mask, lats_mask)
+
+		return region_mask, xpts, ypts
+	else:
+		return region_mask
+
+def densityClim(dayT):
+	"""Assign initial snow density based on daily climatology"""
+
+	densityClim=pd.read_csv(dataPath+'/Daily_Density.csv', header=0, names=['Day', 'Density'])
+	#find density of given day and multiply by 1000 to express in Kg
+	densityClimDay=1000*densityClim['Density'].iloc[dayT-1]
+
+	return densityClimDay
+
+def get_region_mask_pyproj(anc_data_path, proj, xypts_return=0):
+	""" Read in NSIDC Arctic Ocean mask and transofrm to given projection
+	"""
+
+	header = 300
+	datatype='uint8'
+	file_mask = anc_data_path+'region_n.msk'
+
+	#8 - Arctic Ocean
+	#9 - Canadian Archipelago
+	#10 - Gulf of St Lawrence
+	#11 - Land
+
+	fd = open(file_mask, 'rb')
+	region_mask = np.fromfile(file=fd, dtype=datatype)
+	region_mask = np.reshape(region_mask[header:], [448, 304])
+
+	if (xypts_return==1):
+		mask_latf = open(anc_data_path+'/psn25lats_v3.dat', 'rb')
+		mask_lonf = open(anc_data_path+'/psn25lons_v3.dat', 'rb')
+		lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+		lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+
+		# switched lat and lon from basemap
+		xpts, ypts = proj(lons_mask, lats_mask)
 
 		return region_mask, xpts, ypts
 	else:

@@ -1,13 +1,11 @@
 # The NASA Eulerian Snow on Sea Ice Model (NESOSIM) v1.0
 **Contact: Alek Petty / alek.a.petty@nasa.gov / www.alekpetty.com**
 
-The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the sea ice snow depth and snow density across the polar oceans.  
+The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the depth and density fo snow on sea ice across the polar oceans.  
 
-NESOSIM v1.0 includes several parameterizations that represent key mechanisms of snow variability through the snow accumulation/growth season, and two snow layers to broadly represent the evolution of both old/compacted snow and new/fresh snow. 
+NESOSIM includes several parameterizations that represent key mechanisms of snow variability through the snow accumulation/growth season, and two snow layers to broadly represent the evolution of both old/compacted snow and new/fresh snow. 
 
-
-![NESOSIM schematic](schematic.jpg?raw=true "NESOSIM v1.0 schematic")
-
+![NESOSIM schematic](schematic.jpg?raw=true "NESOSIM v1 schematic")
 
 NESOSIM is being made available as an open source project to encourage continued model development and active engagement with the snow on sea ice community. The model code is written in Python, an open source programming language (Python Software Foundation, https://www.python.org/), to better enable future community development efforts. Our hope is that the model will continue to evolve as additional snow processes are incorporated, especially as new field and remote sensing snow observations are collected and made available for calibration/validation. Obvious examples of planned future improvements include the incorporation of snow melt and rain on snow processes, which are not currently included in this initial model version, enabling the model to be run year-round.
 
@@ -16,29 +14,34 @@ For more details of the model physics and preliminary results/calibration effort
 Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on Sea Ice Model (NESOSIM): Initial model development and analysis, Geosci. Mod. Dev.
 
 Versions:
- - v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st).
- - v1.1: This new version of NESOSIM includes a few small updates including: upgrade to Python 3, a bigger domain, introduction of CloudSat scaling parameters (Cabaj et al., 2020)
+ v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please refer to that source code (click on the releases tab aobve) for that specific code version.
+ v1.1: This latest version of NESOSIM includes a few minor updates. Thanks to Alex Cabaj for the help with some of this. Changes include: 
+  - Upgrade of the code to Python 3.
+  - 50 km (increased from 100 km) grid resolution.
+  - An extended Arctic domain to cover all the peripheral seas.
+  - Switched from Basemap to pyproj/cartopy (surprisingly painful).
+  - Introduction of CloudSat scaling parameters by Alex Cabaj (Cabaj et al., 2020).
 
 ## Getting Started
 
 ### Conda installation
 
-I recommend using the included conda environment file - nesosim.yml - to ensure consistency in the Python 2.7 configuration when running this code. Note that you might struggle loading the pickled data in Python 3, hence the delay in updating (need to then regrid all the forcing data).
+I recommend using the included conda environment file - nesosim3.yml - to ensure consistency in the Python 3.7 configuration when running this code. Note that in version 1.1 we have upgraded the code to run in Python 3 (3.7) so your earlier environment will likely not work anymore. The code changes were pretty small. I have found some issues with conda giving access to all the necessary libraries, so you might need to use pip to install things like xarray and cartopy
 
 ```
-conda env create -f nesosim27.yml
+conda env create -f environment.yml
 ```
 
 Alternatively you can try generating your own conda environment using the following packages
 
 ```
-conda create -n nesosim27 python=2.7 scipy matplotlib basemap h5py netCDF4 xarray proj4
+conda create -n nesosim3 python=3.7 scipy matplotlib basemap h5py netCDF4 xarray proj4 cdsapi
 
 ```
 The conda Python environment can be activated with 
 
 ```
-source activate nesosim27
+source activate nesosim3
 ```
 
 Or if you really want you can try simply installing the libraries it flags may be missing when you try and run the scripts, although there will likely be differences in the module versions used. 
@@ -90,27 +93,27 @@ Descriptions should be included at the top of each Python script.
 ### Forcing Data
 
 
-NESOSIM (v1.0) is forced with daily inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
+NESOSIM (v1.1) is forced with daily (50 km) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
 
-The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD).
+The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD) but have ben updated to an extended 50 km (along with a few other tweaks) in this v1.1 configuration.
 
 ```
-Forcings/
+forcings/
 ```
  - Currently empty because of size constraints, but all the gridded forcing data used in Petty et al., (2018, GMD) have been made available on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516, which can be downloaded, unzipped, and copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
 
 
 ```
-TestForcings/
+test_forcings/
 ```
 
- - Includes sample gridded (100 km) test forcing data for 2010-2011: ERA-I (snowfall and winds) and MEDIAN-SF (snowfall), Bootstrap (ice concentration), NSIDCv3 (ice drift). 
+ - In v1.1 this now includes gridded (50 km) test forcing data for 2018-2020: ERA-5 snowfall and winds, CDR ice concentration, OSI SAF sea ice drift vectors. 
 
 
 ### Ancillary Data
 
 ```
-AncData/
+anc_data/
 ```
 - Contains temperature-scaled intitial snow depths and the drifting soviet station data that were used for model calibration.
 
@@ -118,12 +121,12 @@ AncData/
 
  NetCDF files used by the various analysis/plotting scripts included in this repo, which include all the model variables, can be found out:
 ```
-Output/budgets
+output/budgets
 ```
 
 NetCDF files only including the primary model variables are also generated and stored in:
 ```
-Output/final
+output/final
 ```
 A single NetCDF file is provided for each annual accumulation season model run (August 15th to May 1st of the following year), providing daily data on the 100 km polar stereographic model domain. 
 In this final output, each NetCDF file includes the following variables: 
@@ -137,7 +140,7 @@ In this final output, each NetCDF file includes the following variables:
  The final NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
 
 
-Contact me if you any any questions (alek.a.petty@nasa.gov)!
+Do contact me if you any any questions or thoughts on anything included here (alek.a.petty@nasa.gov). Cheers!
 
 Alek
 

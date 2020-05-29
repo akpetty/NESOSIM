@@ -24,10 +24,10 @@
 		More information on installation is given in the README file.
 
 	Update history:
-		1st March 2018: Version 0
+		1st March 2018: Version 0.1
 		1st October 2018: Version 1.0 (updated through review process)
+		1st May 2020: Version 2.0 (updated for ICESat-2 processing)
 
-    
 """
 
 from mpl_toolkits.basemap import Basemap, shiftgrid
@@ -40,8 +40,11 @@ import os
 from glob import glob
 from scipy.ndimage.filters import gaussian_filter
 import netCDF4 as nc4
-import commonFuncs as cF
-
+import utils as cF
+from scipy.interpolate import griddata
+import cartopy.crs as ccrs
+import utils as cF
+import datetime
 
 def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 	precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowWind, snowWindPack):
@@ -80,7 +83,8 @@ def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 
 	dataSet.to_netcdf(savePath+'/budgets/'+saveStr+'.nc') 
 
-def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, densityT, iceConcT, precipT, datesT):
+
+def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, densityT, iceConcT, precipT, windsT, tempT, datesT):
 	""" Read in xrarray data and save as netCDF 
 
 	Args:
@@ -88,9 +92,6 @@ def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, den
 		reanalysisP (str): Reanalysis snowfall forcing used for this model run
 		saveStr (str): output string for saved filed
 		Remaining arguments* (vars): Model variables being saved  
-
-	Output:
-
     
     """
 
@@ -109,23 +110,20 @@ def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, den
 	density = f.createVariable('density', 'f4', ('day', 'x', 'y'))
 	precip = f.createVariable('Precip', 'f4', ('day', 'x', 'y'))
 	iceConc = f.createVariable('iceConc', 'f4', ('day', 'x', 'y'))
+	winds = f.createVariable('windMag', 'f4', ('day', 'x', 'y'))
+	temps = f.createVariable('airTemp2m', 'f4', ('day', 'x', 'y'))
 	day = f.createVariable('day', 'i4', ('day'))
-
-	#dates = f.createDimension('dates', None)
-
-	#startYr = f.createVariable('startYear', 'i2')
-	#date_range = f.createVariable('year', 'str')
 
 	longitude.units = 'degrees East'
 	latitude.units = 'degrees North'
-	#Cdafr.units = ''
-	#Cda.units = ''
+
 	snowVol.description = 'Daily snow volume per unit grid cell (m)'
-	snowDepth.description = 'Daily snow depth (m)'
+	snowDepth.description = 'Daily snow depth (effetive over the ice fraction) (m)'
 	density.description = 'Bulk snow density (kg/m3)'
 	precip.description = 'Precipitation, normally the explicit snowfall component of precip given in the filename (kg/m2)'
-	iceConc.description = 'Ice concentration, product given in the filename (nt = NASA Team, bt = Bootstrap)'
-	#dates.description = 'Date'
+	iceConc.description = 'Ice concentration, product given in the filename (nt = NASA Team, bt = Bootstrap, cd = climate data record)'
+	winds.description = 'Wind speed (m)'
+	temps.description = '2m air temperature (C)'
 	
 	longitude[:] = np.around(lons, decimals=4) #The "[:]" at the end of the variable instance is necessary
 	latitude[:] = np.around(lats, decimals=4)
@@ -134,18 +132,17 @@ def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, den
 	density[:] = np.around(densityT, decimals=4)
 	iceConc[:] = np.around(iceConcT, decimals=4)
 	precip[:] = np.around(precipT, decimals=4)
+	winds[:] = np.around(windsT, decimals=4)
+	temps[:] = np.around(tempT, decimals=4)
 	day[:]=datesT
-	#date_range[:]=date1+'-'+date2
-	#get time in days since Jan 01,01
+
 	from datetime import datetime
 	today = datetime.today()
-	#time_num = today.toordinal()
-	#time[0] = time_num
 
 	#Add global attributes
 	f.author = "Alek Petty"
 	f.contact = " alek.a.petty@nasa.gov, www.alekpetty.com, @alekpetty"
-	f.description = "Daily NESOSI snow budget data"
+	f.description = "Daily NESOSIM data"
 	f.history = "Created " + today.strftime("%d/%m/%y")
 	f.data_range = "Date range of the snow budgets: "+str(datesT[0])+'-'+str(datesT[-1])
 
@@ -204,40 +201,6 @@ def calcWindPacking(windDayT, snowDepthT0):
 	snowWindPackNetT=snowWindPackLossT+snowWindPackGainT#*iceConcDaysG[x]
 	return snowWindPackLossT, snowWindPackGainT, snowWindPackNetT
 
-def calcRidgeLoss(driftGday, snowDepthT, iceConcDaysT):
-	""" Snow loss through ridging
-
-	NB NOT USED IN CURRENT BUDGET CALCULATIONS
-
-	Args:
-		snowDepthT (var): Daily gridded snowdepth 
-		driftGday (var): Daily gridded ice drift
-		iceConcDaysT (var): Daily gridded ice concentration
-
-	returns:
-		snowRidgeT (var): Snow lost through ridging
-
-	""" 
-
-	# Snow loss from ridging as a percentage of current snow depth
-	snowRidgeFactor=0.5
-	coefb=0.05
-	maxConc=0.95
-
-	# Calculate convergence/divergence without snow
-	dvelxdx = np.gradient(driftGday[0], dx, axis=(1)) #convert from m/s to m per day, #1 here is the columns, so in the x direction
-	dvelydy = np.gradient(driftGday[1], dx, axis=(0)) #0 here is the rows, so in the y direction
-    
-	dvelxdx[np.isnan(dvelxdx.filled(0.))]=0.
-	dvelydy[np.isnan(dvelydy.filled(0.))]=0.
-
-	DynT= -(dvelxdx + dvelydy)
-	
-	# See where we have convergence and high ice concentration.
-	# Could change to just losing some of the new snow fraction
-	convergeT= where((DynT>0)&(iceConcDaysT>=maxConc), 1, 0)
-	snowRidgeT= -convergeT*snowRidgeFactor*snowDepthT*((1-iceConcDaysT)/coefb) #*iceConcDaysG[x]
-	return snowRidgeT
 
 def calcDynamics(driftGday, snowDepthsT, dx):
 	""" Snow loss/gain from ice dynamics
@@ -254,7 +217,6 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 	"""
 
 	# Snow change from ice dynamics (divergence/convergence). Convergence is positive
-	
 	dhsvelxdxDiv = snowDepthsT*np.gradient(driftGday[0]*deltaT, dx, axis=(1)) #convert from m/s to m per day, #1 here is the columns, so in the x direction
 	dhsvelydyDiv = snowDepthsT*np.gradient(driftGday[1]*deltaT, dx, axis=(0)) #0 here is the rows, so in the y direction
 
@@ -307,22 +269,38 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 
 	return snowAdvAllT, snowDivAllT
 
-def calcBudget(snowDepths, iceConcDayT, precipDayT, driftGdayT, windDayT, 
-	density, precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, 
+def calcBudget(xptsG, yptsG, snowDepths, iceConcDayT, precipDayT, driftGdayT, windDayT, tempDayT, 
+	density, precipDays, iceConcDays, windDays, tempDays, snowAcc, snowOcean, snowAdv, 
 	snowDiv, snowWind, snowWindPackLoss, snowWindPackGain, snowWindPack, region_maskG, dx, x, dayT,
 	densityType='variable', dynamicsInc=1, leadlossInc=1, windpackInc=1):
-	"""Main snow budget updates
-	"""# Convert current snow depth field to temp array
-	
+	""" Snow budget calculations
+
+	Args:
+		xptsG (var, x/y): x coordinates of grid
+		yptsG (var, x/y): y coordinates of grid
+		snowDepths (var, day/x/y): daily snow depth grid
+		iceConcDayT (var, x/y): ice concentration for that day
+		precipDayT (var, x/y): precip for that day
+		driftGdayT (var, x/y): ice drift for that day
+		windDayT (var, x/y): wind speed magnitude for that day
+		tempDayT (var, x/y): near surface air temperture for that day
+		density (var, x/y/j): 2 layer snow density
+
+	returns:
+		Updated snow budget arrays
+		
+	"""
+
 	precipDays[x]=precipDayT
 	iceConcDays[x]=iceConcDayT
 	windDays[x]=windDayT
+	tempDays[x]=tempDayT
 
 	
 	if (densityType=='clim'):
 		# returns a fixed density value assigned to all grid cells based on climatology. 
 		# Applies the same value to both snow layers.
-		snowDensityNew=densityClim(dayT)
+		snowDensityNew=cF.densityClim(dayT)
 	else:
 		# Two layers so a new snow density and an evolving old snow density
 		snowDensityNew=snowDensityFresh
@@ -330,7 +308,7 @@ def calcBudget(snowDepths, iceConcDayT, precipDayT, driftGdayT, windDayT,
 
 	# Convert precip to m
 	precipDayDelta=precipDayT/snowDensityNew
-	precipDayDelta[where(region_maskG>10)]=np.nan
+	precipDayDelta[np.where(region_maskG>10)]=np.nan
 
 	# Snow accumulated onto the ice
 	snowAccDelta= (precipDayDelta * iceConcDayT)
@@ -349,10 +327,6 @@ def calcBudget(snowDepths, iceConcDayT, precipDayT, driftGdayT, windDayT,
 	
 	snowAdv[x+1] = snowAdv[x] + snowAdvDelta[0]+ snowAdvDelta[1]
 	snowDiv[x+1] = snowDiv[x] + snowDivDelta[0]+ snowDivDelta[1]
-	
-	# Snow loss from ridging
-	#snowRidgeT= calcRidgeLoss(driftGdays[x], snowDepthsT[0], iceConcDaysG[x])	
-	#snowRidge[x+1] = snowRidge[x]+ snowRidgeT
 
 	# Lead loss term
 	if (leadlossInc==1):
@@ -381,53 +355,56 @@ def calcBudget(snowDepths, iceConcDayT, precipDayT, driftGdayT, windDayT,
 	snowDepths[x+1, 1]=snowDepths[x, 1] +snowWindPackGainDelta + snowAdvDelta[1] + snowDivDelta[1] #+ snowDcationT
 
 	# Set negative (false) snow values to zero
-	snowDepths[x+1, 0][where(snowDepths[x+1, 0]<0.)]=0.
-	snowDepths[x+1, 1][where(snowDepths[x+1, 1]<0.)]=0.
-	snowDepths[x+1][where(np.isnan(snowDepths[x+1]))]=0.
+	snowDepths[x+1, 0][np.where(snowDepths[x+1, 0]<0.)]=0.
+	snowDepths[x+1, 1][np.where(snowDepths[x+1, 1]<0.)]=0.
+	snowDepths[x+1][np.where(np.isnan(snowDepths[x+1]))]=0.
 	
-	if (x==50):
+	if (x==100):
 		# Pick a random day to do a test on the snow depths
-		print ('sd1:', np.amax(snowDepths[x+1, 0]))
-		print ('sd11:', np.amax(snowDepths[x+1, 1]))
+		print ('Snow depth test on day 100 (new snow):', np.amax(snowDepths[x+1, 0]))
+		print ('Snow depth test on day 100 (old snow):', np.amax(snowDepths[x+1, 1]))
 	#snowDepths[x+1].filled(0.)
 
 	snowDepths[x+1, 0] = gaussian_filter(snowDepths[x+1, 0], sigma=0.3)
 	snowDepths[x+1, 1] = gaussian_filter(snowDepths[x+1, 1], sigma=0.3)
 
-	#print 'sd2:',np.amax(snowDepths[x+1])
-
 	# Do this again after smoothing
-	snowDepths[x+1, 0][where(snowDepths[x+1, 0]<0.)]=0.
-	snowDepths[x+1, 1][where(snowDepths[x+1, 1]<0.)]=0.
-	snowDepths[x+1][where(np.isnan(snowDepths[x+1]))]=0.
+	snowDepths[x+1, 0][np.where(snowDepths[x+1, 0]<0.)]=0.
+	snowDepths[x+1, 1][np.where(snowDepths[x+1, 1]<0.)]=0.
+	snowDepths[x+1][np.where(np.isnan(snowDepths[x+1]))]=0.
 	
-	#print 'sd3:',np.amax(snowDepths[x+1])
-
-	#snowDepths[x+1].filled(0.)
 	# Set snow depths over land/coasts to zero
-	snowDepths[x+1, 0][where(region_maskG>10)]=0.
-	snowDepths[x+1, 1][where(region_maskG>10)]=0.
+	snowDepths[x+1, 0][np.where(region_maskG>10)]=0.
+	snowDepths[x+1, 1][np.where(region_maskG>10)]=0.
+
+	# Set snow depths over lakes (lake sic included in CDR) to zero
+	snowDepths[x+1, 0][np.where(region_maskG<1)]=0.
+	snowDepths[x+1, 1][np.where(region_maskG<1)]=0.
 
 	if (densityType=='clim'):
 		# returns a fixed density value assigned to all grid cells based on climatology. 
 		# Applies the same value to both snow layers.
 		
 		density[x+1]=snowDensityNew
-		density[x+1][where(region_maskG>10)]=np.nan
-		density[x+1][where(iceConcDayT<minConc)]=np.nan
-		density[x+1][where((snowDepths[x+1][0]+snowDepths[x+1][1])<minSnowD)]=np.nan
+		# mask over land, lakes and coast
+		density[x+1][np.where(region_maskG>10)]=np.nan
+		density[x+1][np.where(region_maskG<1)]=np.nan
+		density[x+1][np.where(iceConcDayT<minConc)]=np.nan
+		density[x+1][np.where((snowDepths[x+1][0]+snowDepths[x+1][1])<minSnowD)]=np.nan
 	else:
-		# Two layers so a new snow density and an evolving old snow density
-		
+		# Two layers so a new snow density and an evolving old snow density	
 		density[x+1]=densityCalc(snowDepths[x+1], iceConcDayT, region_maskG)
 
-
 def genEmptyArrays(numDaysT, nxT, nyT):
-	""" Declare empty arrays to store the various budget terms"""
+	""" 
+	Declare empty arrays to store the various budget terms
+
+	"""
 	
 	precipDays=np.zeros((numDaysT, nxT, nyT)) 
 	iceConcDays=np.zeros((numDaysT, nxT, nyT)) 
 	windDays=np.zeros((numDaysT, nxT, nyT)) 
+	tempDays=np.zeros((numDaysT, nxT, nyT)) 
 
 	snowDepths=np.zeros((numDaysT, 2, nxT, nyT))
 	density=np.zeros((numDaysT, nxT, nyT))
@@ -441,65 +418,64 @@ def genEmptyArrays(numDaysT, nxT, nyT):
 	snowWindPackGain=np.zeros((numDaysT, nxT, nyT))
 	snowWind=np.zeros((numDaysT, nxT, nyT))
 	
-	#snowRidge=np.zeros((numDays, nx, ny))
-	#snowDcation=np.zeros((numDays, nx, ny))
-	#densDyn=np.zeros((numDays, nx, ny))
-	#densDcation=np.zeros((numDays, nx, ny))
-	
-	return precipDays, iceConcDays, windDays, snowDepths, density, snowDiv, snowAdv, snowAcc, snowOcean, snowWindPack, \
+
+	return precipDays, iceConcDays, windDays, tempDays, snowDepths, density, snowDiv, snowAdv, snowAcc, snowOcean, snowWindPack, \
 	snowWindPackLoss, snowWindPackGain, snowWind
 
-def plotEndBudgets(m, xptsG, yptsG, precipDaysT, windDaysT, snowDepthsT, snowOceanT, snowAccT, snowDivT, \
+def plot_budgets_cartopy(lonG, latG, precipDaysT, windDaysT, snowDepthsT, snowOceanT, snowAccT, snowDivT, \
 	snowAdvT, snowWindT, snowWindPackT, snowWindPackLossT, snowWindPackGainT, densityT, dateStr, totalOutStr='test'):
 	""" Plot snow budget terms """
 
-	cF.plotSnow(m, xptsG, yptsG, precipDaysT, date_string=dateStr, out=figpath+'/precip'+totalOutStr, units_lab=r'kg/m2', minval=0., maxval=1., base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, windDaysT, date_string=dateStr, out=figpath+'/wind'+totalOutStr, units_lab=r'm/s', minval=0., maxval=10, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, precipDaysT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/precip'+totalOutStr, units_lab='kg/m2', varStr='Snowfall', minval=0., maxval=1, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, windDaysT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/wind'+totalOutStr, units_lab='m/s', varStr='Wind speed', minval=0., maxval=10, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, snowDepthsT[0], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowNew_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, snowDepthsT[1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowOld_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, snowDepthsT[0]+snowDepthsT[1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowTot_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	
+	cF.plot_gridded_cartopy(lonG, latG, snowDivT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDiv_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	cF.plot_gridded_cartopy(lonG, latG, snowAdvT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowAdv_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	cF.plot_gridded_cartopy(lonG, latG, snowWindT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowLeadLoss_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	cF.plot_gridded_cartopy(lonG, latG, snowWindPackT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowWindPack_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
 
-	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[0], date_string=dateStr, out=figpath+'/snowNew_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, snowDepthsT[1], date_string=dateStr, out=figpath+'/snowOld_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, (snowDepthsT[0]+snowDepthsT[1]), date_string=dateStr, out=figpath+'/snowTot_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.5, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-
-	cF.plotSnow(m, xptsG, yptsG, snowOceanT, date_string=dateStr, out=figpath+'/snowOcean_'+totalOutStr, units_lab=r'm', minval=-0.6, maxval=0, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-	cF.plotSnow(m, xptsG, yptsG, snowAccT, date_string=dateStr, out=figpath+'/snowAcc_'+totalOutStr, units_lab=r'm', minval=0., maxval=0.6, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-
-	cF.plotSnow(m, xptsG, yptsG, snowDivT, date_string=dateStr, out=figpath+'/snowDiv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowAdvT, date_string=dateStr, out=figpath+'/snowAdv_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowWindT, date_string=dateStr, out=figpath+'/snowWind_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.RdBu)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackT, date_string=dateStr, out=figpath+'/snowWindPackNet_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=1, norm=0, cmap_1=cm.cubehelix)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackLossT, date_string=dateStr, out=figpath+'/snowWindPackLoss_'+totalOutStr, units_lab=r'm', minval=-0.3, maxval=0., base_mask=1, norm=0, cmap_1=cm.cubehelix)
-	cF.plotSnow(m, xptsG, yptsG, snowWindPackGainT, date_string=dateStr, out=figpath+'/snowWindPackGain_'+totalOutStr, units_lab=r'm', minval=0, maxval=0.3, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
-
-	cF.plotSnow(m, xptsG, yptsG, densityT, date_string=dateStr, out=figpath+'/dens'+totalOutStr, units_lab=r'kg/m3', minval=300, maxval=360, base_mask=1, norm=0, cmap_1=cm.cubehelix_r)
+	cF.plot_gridded_cartopy(lonG, latG, densityT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDensity_'+totalOutStr, units_lab='kg/m3', varStr='Snow density', minval=300, maxval=360, cmap_1=cm.viridis)
 
 
+def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr):
+	""" Load daily forcings
 
-def loadData(yearT, dayT, driftP, reanalysisP, reanalysisWind,varStr, windStr, dxStr, team_s, yearT2=0):
-	"""Load daily model forcings"""
-
+	"""
 	dayStr='%03d' %dayT
-
-	if (yearT2<1900):
-		# If we dont feed in a different forcing year then just set this to the main forcing year
-		yearT2=yearT
-
-
-	print (yearT, yearT2)
-	precipDayG=load(forcingPath+'Precip/'+reanalysisP+'/'+varStr+'/'+str(yearT)+'/'+reanalysisP+varStr+dxStr+'-'+str(yearT)+'_d'+dayStr)
-	windDayG=load(forcingPath+'Winds/'+reanalysisWind+'/'+str(yearT)+'/'+reanalysisWind+windStr+dxStr+str(yearT)+'_d'+dayStr)
 	
-	iceConcDayG=load(forcingPath+'IceConc/'+team_s+'/'+str(yearT2)+'/iceConcG_'+team_s+dxStr+'-'+str(yearT2)+'_d'+dayStr)
+	try:
+		precipDayG=load(forcingPath+'Precip/'+precipVar+'/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	except:
+		if (dayStr=='365'):
+			print('no leap year data, using data from the previous day')
+			precipDayG=load(forcingPath+'Precip/'+precipVar+'/sf/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+'364', allow_pickle=True)
+		
+		else:
+			print('No precip data so exiting!')
+			exit()
 	
-	#print 'Path:', glob(outPath+'/Drifts/'+driftP+'/'+str(yearT)+'/'+driftP+'DriftG'+dxStr+'-'+str(yearT)+'_d'+dayStr)
-	#print 'Num drift files:', size(glob(outPath+'/Drifts/'+driftP+'/'+str(yearT)+'/'+driftP+'DriftG'+dxStr+'-'+str(yearT)+'_d'+dayStr))
-	if (size(glob(forcingPath+'Drifts/'+driftP+'/'+str(yearT2)+'/'+driftP+'DriftG'+dxStr+'-'+str(yearT2)+'_d'+dayStr))>0):
-		driftGdayG=load(forcingPath+'Drifts/'+driftP+'/'+str(yearT2)+'/'+driftP+'DriftG'+dxStr+'-'+str(yearT2)+'_d'+dayStr)
-	else:
+
+	windDayG=load(forcingPath+'Winds/'+windVar+'/'+str(yearT)+'/'+windVar+'winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	iceConcDayG=load(forcingPath+'IceConc/'+concVar+'/'+str(yearT)+'/iceConcG_'+concVar+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	
+	try:
+		driftGdayG=load(forcingPath+'IceDrift/'+driftVar+'/'+str(yearT)+'/'+driftVar+'_driftG'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)	
+	except:
 		# if no drifts exist for that day then just set drifts to masked array (i.e. no drift).
+		print('No drift data')
 		driftGdayG=ma.masked_all((2, iceConcDayG.shape[0], iceConcDayG.shape[1]))
 	
-
-	return iceConcDayG, precipDayG, driftGdayG, windDayG
+	try:
+		tempDayG=load(forcingPath+'Temp/'+precipVar+'/t2m/'+str(yearT)+'/t2m'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	except:
+		# if no drifts exist for that day then just set drifts to masked array (i.e. no drift).
+		print('No temp data')
+		tempDayG=ma.masked_all((iceConcDayG.shape[0], iceConcDayG.shape[1]))
+	
+	return iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG
 
 def densityCalc(snowDepthsT, iceConcDayT, region_maskT):
 	"""Assign initial density based on snow depths
@@ -507,106 +483,79 @@ def densityCalc(snowDepthsT, iceConcDayT, region_maskT):
 
 	densityT=((snowDepthsT[0]*snowDensityFresh) + (snowDepthsT[1]*snowDensityOld))/(snowDepthsT[0]+snowDepthsT[1]) #+ densDcationT
 	
-	densityT[where(densityT>snowDensityOld)]=snowDensityOld
-	densityT[where(densityT<snowDensityFresh)]=snowDensityFresh
+	densityT[np.where(densityT>snowDensityOld)]=snowDensityOld
+	densityT[np.where(densityT<snowDensityFresh)]=snowDensityFresh
 
-	densityT[where(region_maskT>10)]=np.nan
-	densityT[where(iceConcDayT<minConc)]=np.nan
-	densityT[where((snowDepthsT[0]+snowDepthsT[1])<minSnowD)]=np.nan
+	densityT[np.where(region_maskT>10)]=np.nan
+	densityT[np.where(iceConcDayT<minConc)]=np.nan
+	densityT[np.where((snowDepthsT[0]+snowDepthsT[1])<minSnowD)]=np.nan
 
 	return densityT
 
-def densityClim(dayT):
-	"""Assign initial snow density based on daily climatology"""
+def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.', anc_data_pathT='../anc_data/', figPathT='../Figures/', 
+	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', densityTypeT='variable', 
+	outStr='', extraStr='', IC=2, windPackFactorT=0.1, windPackThreshT=5., leadLossFactorT=0.1, dynamicsInc=1, leadlossInc=1, 
+	windpackInc=1, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000):
+	""" 
 
-	densityClim=pd.read_csv(dataPath+'/Daily_Density.csv', header=0, names=['Day', 'Density'])
-	#find density of given day and multiply by 1000 to express in Kg
-	densityClimDay=1000*densityClim['Density'].iloc[dayT-1]
-
-	return densityClimDay
-
-
-def main( year1, month1, day1, outPathT='.', forcingPathT='.', month2=4, day2=0, yearIC1=0, reanalysisP='ERAI', varStr='sf', driftP='NSIDCv3', 
-	team_s='nt', densityTypeT='variable', outStr='', IC=0, windPackFactorT=0.1, windPackThreshT=5., 
-	leadLossFactorT=0.1, dynamicsInc=1, leadlossInc=1, windpackInc=1, saveData=1, plotBudgets=1, saveFolder=''):
-	""" Primary model function 
-
-	Add in more of a description here
+	Main model function
 
 	Args:
 		The various model configuration parameters
 
 	"""
-
-	# Map projection
-	m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False  )
 	
-	global dataPath
-	global forcingPath
-	global outPath
+	# Assign some global parameters
+	global dataPath, forcingPath, outPath, ancDataPath
 	
 	outPath=outPathT
 	forcingPath=forcingPathT
+	ancDataPath=anc_data_pathT
 	
-
-	# Grid info
-	dx=100000.
-	dxStr=str(int(dx/1000))+'km'
-	lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
-	region_maskG=load(forcingPath+'/Grid/regionMaskG'+dxStr)
-
-	# Products used
-	extraStr=''
-	reanalysisWind='ERAI' # NCEPR2, 
-	windStr='WindMag'
-	#reanalysisP='ERAI'
-	#varStr='sf' # tp is precip, sf is snowfall for the reanalyses that provide that, e.g. ERA-I
-	
-
 	# Assign density of the two snow layers
 	global snowDensityFresh, snowDensityOld, minSnowD, minConc, leadLossFactor, windPackThresh, windPackFactor, deltaT
 	
 	snowDensityFresh=200. # density of fresh snow layer
 	snowDensityOld=350. # density of old snow layer
 
-	minSnowD=0.02 # minimum snow depth for density estimate
-	minConc=0.15 # mask budget values with a conc below this
+	minSnowD=0.02 # minimum snow depth for a density estimate
+	minConc=0.15 # mask budget values with a concentration below this value
 
-	deltaT=60.*60.*24. # time interval
+	deltaT=60.*60.*24. # time interval (seconds in a day)
+
+	#------- Create map projection
+	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
+	nx=xptsG.shape[0]
+	ny=xptsG.shape[1]
+
+	dxStr=str(int(dx/1000))+'km'
+	print(nx, ny, dxStr)
+
+
+	region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_pathT, proj, xypts_return=1)
+	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
 
 	leadLossFactor=leadLossFactorT #0.025 # snow loss to leads coefficient
 	windPackThresh=windPackThreshT # 5. #minimum winds needed for wind packing
 	windPackFactor=windPackFactorT # 0.05 #fraction of snow packed into old snow layer
+
+	# Current year
+	yearCurrent=year1
 	
-	# Date info
-	#year1=2013
-	#month1=7 # 8=September
-	#day1=14
-
-	year2=year1+1
-	month2=month2# 4=May
-	day2=day2
-
-	yearIC2=yearIC1+1
-	year=year1
-	yearIC=yearIC1
-
 	# Get time period info
 	startDay, numDays, numDaysYear1, dateOut= cF.getDays(year1, month1, day1, year2, month2, day2)
 	print (startDay, numDays, numDaysYear1, dateOut)
 
 	# make this into a small function
-	import datetime
 	dates=[]
 	for x in range(1, numDays+1):
 		#print x
 		date = datetime.datetime(year1, month1+1, day1+1) + datetime.timedelta(x) #This assumes that the year is 2007
-		print (int(date.strftime('%Y%m%d')))
+		#print (int(date.strftime('%Y%m%d')))
 		dates.append(int(date.strftime('%Y%m%d')))
 
-
-	saveStr= driftP+'_'+extraStr+reanalysisP+'_'+varStr+'_SIC'+team_s+'_Rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+outStr+'-'+dateOut
-	saveStrNoDate=driftP+'_'+extraStr+reanalysisP+'_'+varStr+'_SIC'+team_s+'_Rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+outStr
+	saveStr= precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut
+	saveStrNoDate=precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr
 	print ('Saving to:', saveStr)
 	 #'../../DataOutput/'
 
@@ -618,25 +567,32 @@ def main( year1, month1, day1, outPathT='.', forcingPathT='.', month2=4, day2=0,
 		os.makedirs(savePath+'/final/')
 
 	global figpath
-	figpath='../Figures/Diagnostic/'+saveStrNoDate+'/'
+	figpath=figPathT+'/Diagnostic/'+saveStrNoDate+'/'
 	if not os.path.exists(figpath):
 		os.makedirs(figpath)
+	if not os.path.exists(figpath+'/daily_snow_depths/'):
+		os.makedirs(figpath+'/daily_snow_depths/')
 
-	precipDays, iceConcDays, windDays, snowDepths, density, snowDiv, snowAdv, snowAcc, snowOcean, snowWindPack, snowWindPackLoss, snowWindPackGain, snowWind= genEmptyArrays(numDays, nx, ny)
+	precipDays, iceConcDays, windDays, tempDays, snowDepths, density, snowDiv, snowAdv, snowAcc, snowOcean, snowWindPack, snowWindPackLoss, snowWindPackGain, snowWind= genEmptyArrays(numDays, nx, ny)
 
+	print('IC:', IC)
 	if (IC>0):
 		if (IC==1):
-			#ICSnowDepth = load(outPath+'AugSnow'+dxStr)
-			if (yearIC1>1900):
-				# if we read in a valid ice conc year
-				ICSnowDepth = load(forcingPath+'InitialConds/ICsnow'+str(yearIC1)+'-'+dxStr)
-			else:
-				ICSnowDepth = load(forcingPath+'InitialConds/ICsnow'+str(year1)+'-'+dxStr)
+			# August Warren climatology snow depths
+			ICSnowDepth = load(forcingPath+'InitialConditions/AugSnow'+dxStr, allow_pickle=True)
+			print('Initialize with August Warren climatology')
 		elif (IC==2):
-			ICSnowDepth = load(forcingPath+'InitialConds/AugSnow'+dxStr)
+			# Alek v2 (capped at 10 m) ICs based on MW method
+			try:
+				# Convert to meters!!
+				ICSnowDepth = load(forcingPath+'InitialConditions/ICsnow'+str(year1)+'-'+dxStr+extraStr, allow_pickle=True)
+				print('Initialize with new v1.1 scaled initial conditions')
+				print(np.amax(ICSnowDepth))
+			except:
+				print('No initial conditions file available')
 
-		iceConcDayG, precipDayG, driftGdayG, windDayG=loadData(year1, startDay, driftP, reanalysisP, reanalysisWind,varStr, windStr, dxStr, team_s, yearT2=yearIC1)
-		ICSnowDepth[where(iceConcDayG<minConc)]=0
+		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(year1, startDay, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
+		ICSnowDepth[np.where(iceConcDayG<minConc)]=0
 
 		#pF.plotSnow(m, xptsG, yptsG, ICSnowDepth, date_string='T', out=figpath+'/Snow/2layer/snowIC', units_lab=r'm', minval=-0, maxval=.1, base_mask=0, norm=0, cmap_1=cm.viridis)
 
@@ -651,36 +607,40 @@ def main( year1, month1, day1, outPathT='.', forcingPathT='.', month2=4, day2=0,
 	for x in range(numDays-1):	
 		day = x+startDay
 		print ('day:', day)
+
 		if (day>=numDaysYear1):
 			# If day goes beyond the number of days in initial year, jump to the next year
 			day=day-numDaysYear1
-			year=year2
-			yearIC=yearIC2
-
+			yearCurrent=year2
+		
 		# Load daily data 
-		iceConcDayG, precipDayG, driftGdayG, windDayG=loadData(year, day, driftP, reanalysisP, reanalysisWind,varStr, windStr, dxStr, team_s, yearT2=yearIC)
+		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(yearCurrent, day, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
 		
 		# Calculate snow budgets
-		calcBudget(snowDepths, iceConcDayG, precipDayG, driftGdayG, windDayG, 
-			density, precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, 
+		calcBudget(xptsG, yptsG, snowDepths, iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG,
+			density, precipDays, iceConcDays, windDays, tempDays, snowAcc, snowOcean, snowAdv, 
 			snowDiv, snowWind, snowWindPackLoss, snowWindPackGain, snowWindPack, region_maskG, dx, x, day,
 			densityType=densityTypeT, dynamicsInc=dynamicsInc, leadlossInc=leadlossInc, windpackInc=windpackInc)
 		
+		if (plotdaily==1):
+			cF.plot_gridded_cartopy(lonG, latG, snowDepths[x+1, 0]+snowDepths[x+1, 1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'daily_snow_depths/snowTot_'+saveStrNoDate+str(x), units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	
 	# Load last data 
-	iceConcDayG, precipDayG, _, windDayG=loadData(year, day+1, driftP, reanalysisP, reanalysisWind,varStr, windStr, dxStr, team_s, yearT2=yearIC)
+	iceConcDayG, precipDayG, _, windDayG, tempDayG =loadData(yearCurrent, day+1, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
 	precipDays[x+1]=precipDayG
 	iceConcDays[x+1]=iceConcDayG
 	windDays[x+1]=windDayG
+	tempDays[x+1]=tempDayG
 	
 	outStrings=['snowDepthTotal','snowDepthTotalConc', 'density', 'iceConc', 'Precip']
 
 	if (saveData==1):
 		# Output snow budget terms to netcdf datafiles
 		OutputSnowModelRaw(savePath, saveStr, snowDepths, density, precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowWind, snowWindPack)
-		OutputSnowModelFinal(savePath, saveStr, lonG, latG, snowDepths[:, 0]+snowDepths[:, 1], (snowDepths[:, 0]+snowDepths[:, 1])/iceConcDays, density, iceConcDays, precipDays, dates)
+		OutputSnowModelFinal(savePath, saveStr, lonG, latG, snowDepths[:, 0]+snowDepths[:, 1], (snowDepths[:, 0]+snowDepths[:, 1])/iceConcDays, density, iceConcDays, precipDays, windDays, tempDays, dates)
 
 	if (plotBudgets==1):
 		# Plot final snow budget terms 
-		plotEndBudgets(m, xptsG, yptsG, precipDayG, windDayG, snowDepths[x+1], snowOcean[x+1], snowAcc[x+1], snowDiv[x+1], \
+		plot_budgets_cartopy(lonG, latG, precipDayG, windDayG, snowDepths[x+1], snowOcean[x+1], snowAcc[x+1], snowDiv[x+1], \
 		snowAdv[x+1], snowWind[x+1], snowWindPack[x+1], snowWindPackLoss[x+1], snowWindPackGain[x+1], density[x+1], dates[-1], totalOutStr=saveStr)
 

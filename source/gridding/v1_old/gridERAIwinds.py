@@ -33,31 +33,39 @@ import commonFuncs as cF
 import os
 
 
-reanalysis='ERAI'
 
-rawDataPath = '/Volumes/PETTY_PASSPORT3/DATA/'
-figpath='/Volumes/PETTY_PASSPORT3/NESOSIM/Figures/ERAI/'
-outPath = '/Volumes/PETTY_PASSPORT3/NESOSIM/Forcings/Wind/ERAI/'
 
-if not os.path.exists(figpath):
-	os.makedirs(figpath)
+#dataPath = '/data/users/aapetty/Data/'
+#ancDataPath='/data/users/aapetty/Analysis/NESOSIMdev/AncData/'
+#figpath='/data/users/aapetty/Figures/NESOSIMdev/ERAI/'
+#outPath = '/data/users/aapetty/Forcings/Winds/ERAI/'
 
-m = Basemap(projection='npstere',boundinglat=60,lon_0=-45, resolution='l', round=False)
-dx=100000.
-dxStr=str(int(dx/1000))+'km'
-print dxStr
-lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
-region_mask, xptsI, yptsI = cF.get_region_mask(rawDataPath, m, xypts_return=1)
-region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='linear')
-region_maskG.dump(outPath+'regionMaskG'+dxStr)
 
-def main(year):
+
+def main(year, startMonth=0, endMonth=11, extraStr='v2', dx=100000, data_path='.', out_path='.', fig_path='.', anc_data_path='../../AncData/'):
+	
+
+	reanalysis='ERAI'
+
+	m = Basemap(projection='npstere',boundinglat=56,lon_0=-45, resolution='l', round=False)
+	dx=100000.
+	dxStr=str(int(dx/1000))+'km'
+	print dxStr
+	lonG, latG, xptsG, yptsG, nx, ny= cF.defGrid(m, dxRes=dx)
+	region_mask, xptsI, yptsI = cF.get_region_mask(ancDataPath, m, xypts_return=1)
+	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='linear')
+	#region_maskG.dump(outPath+'regionMaskG'+dxStr)
+	#region_maskG=load(outPath+'regionMaskG'+dxStr)
+
 	yearT=year
+
+	if not os.path.exists(figpath):
+		os.makedirs(figpath)
 
 	if not os.path.exists(outPath+str(year)):
 		os.makedirs(outPath+str(year))
 
-	numDays=pF.getLeapYr(year)
+	numDays=cF.getLeapYr(year)
 	if (numDays>365):
 		monIndex = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
 	else:
@@ -65,16 +73,18 @@ def main(year):
 
 
 	# Month index starts at 0
-	startMonth=0
-	endMonth=11
+	#startMonth=2
+	#endMonth=11
 
 	#varStr='sf'
 	varStr='WindMag'
 
 	WindMagDaysG=ma.masked_all((0, nx, ny))
 
-	if not os.path.exists(outPath+varStr+'/'+str(year)):
-		os.makedirs(outPath+varStr+'/'+str(year))
+	if not os.path.exists(outPath+'/'+str(year)):
+		os.makedirs(outPath+'/'+str(year))
+	if not os.path.exists(figpath+'/'+varStr+'/'):
+		os.makedirs(figpath+'/'+varStr+'/')
 
 	startDay=monIndex[startMonth]
 	if (endMonth>11):
@@ -91,22 +101,23 @@ def main(year):
 			yearT=year+1
 		dayStr='%03d' %dayT
 
+		#print xptsM
 		#in  kg/m2 per day
-		xptsM, yptsM, lonsM, latsM, WindMag =cF.get_ERA_wind_days(m, rawDataPath, yearT, dayT)
+		xptsM, yptsM, lonsM, latsM, WindMag =cF.get_ERA_wind_days(m, dataPath, yearT, dayT, extra=extraStr)
 
 		WindMagG = griddata((xptsM.flatten(), yptsM.flatten()), WindMag.flatten(), (xptsG, yptsG), method='linear')
 		WindMagG[where(region_maskG>10)]=0
 
 		# plot map as a check
-		cF.plotSnow(m, xptsG, yptsG, WindMagG, out=figpath+varStr+'-'+str(yearT)+'_d'+str(dayT), units_lab=r'm/s', minval=0, maxval=10, base_mask=0, norm=0, cmap_1=cm.viridis)
+		cF.plotSnow(m, xptsG, yptsG, WindMagG, out=figpath+'/'+varStr+'/'+varStr+'-'+str(yearT)+'_d'+str(dayT)+'v56', units_lab=r'm/s', minval=0, maxval=10, base_mask=0, norm=0, cmap_1=cm.viridis)
 
 
-		WindMagG.dump(outPath+varStr+'/'+str(yearT)+'/'+reanalysis+varStr+dxStr+str(yearT)+'_d'+dayStr)
+		WindMagG.dump(outPath+'/'+str(yearT)+'/'+reanalysis+varStr+dxStr+str(yearT)+'_d'+dayStr+'v56')
 
 
 #-- run main program
 if __name__ == '__main__':
-	for y in xrange(2018, 2018+1, 1):
+	for y in xrange(2019, 2019+1, 1):
 		print y
 		main(y)
 
