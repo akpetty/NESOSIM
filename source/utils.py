@@ -32,31 +32,30 @@ from scipy.ndimage.filters import gaussian_filter
 import datetime
 
 def getLeapYr(year):
-	
-  leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
-  if year in leapYrs:
-    numDays=366
-  else:
-    numDays=365
-  return numDays
+	leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
+	if year in leapYrs:
+		numDays=366
+	else:
+		numDays=365
+	return numDays
 
 
 def getDays(year1, month1, day1, year2, month2, day2):
-  """Get days in model time period
-  """
-  numDaysYear1=getLeapYr(year1)
+	"""Get days in model time period
+	"""
+	numDaysYear1=getLeapYr(year1)
 
-  dT01 = datetime.datetime(year1, 1, 1)
-  d1 = datetime.datetime(year1, month1+1, day1+1)
-  d2 = datetime.datetime(year2, month2+1, day2+1)
-  startDayT=(d1 - dT01).days
-  numDaysT=(d2 - d1).days+1
+	dT01 = datetime.datetime(year1, 1, 1)
+	d1 = datetime.datetime(year1, month1+1, day1+1)
+	d2 = datetime.datetime(year2, month2+1, day2+1)
+	startDayT=(d1 - dT01).days
+	numDaysT=(d2 - d1).days+1
 
-  fmt = '%d%m%Y'
-  date1Str=d1.strftime(fmt)
-  date2Str=d2.strftime(fmt)
+	fmt = '%d%m%Y'
+	date1Str=d1.strftime(fmt)
+	date2Str=d2.strftime(fmt)
 
-  return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
+	return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
 
 
 
@@ -107,7 +106,7 @@ def getOSISAFDrift(m, fileT):
 	f = Dataset(fileT, 'r')
 	print(fileT)
 
-        # read lat/lon (start points) and lat1/lon1 (end points)
+	# read lat/lon (start points) and lat1/lon1 (end points)
 	lon = (f.variables['lon'][:])
 	lon1 = (f.variables['lon1'][0])
 	lat = (f.variables['lat'][:])
@@ -121,15 +120,15 @@ def getOSISAFDrift(m, fileT):
 	xpts=(x0+x1)/2.
 	ypts=(y0+y1)/2.
 
-        # normalize drift components to m/s (x1-x0 is already m, so we just divide by 2-days worth of seconds)
+	# normalize drift components to m/s (x1-x0 is already m, so we just divide by 2-days worth of seconds)
 	xt=(x1-x0)/(60*60*24*2.)
 	yt=(y1-y0)/(60*60*24*2.)
 
-        # TL: no need to rotate : the xt, and yt are already in the basemap's projection
+	# TL: no need to rotate : the xt, and yt are already in the basemap's projection
 
-        # compute magnitude (speed scalar)
+	# compute magnitude (speed scalar)
 	mag=sqrt(xt**2+yt**2)
-        #print mag.mean(), mag.min(), mag.max()
+	#print mag.mean(), mag.min(), mag.max()
 
 	return xt, yt, mag, lat, lon, xpts, ypts
 
@@ -144,7 +143,7 @@ def get_osisaf_drifts_proj(proj, fileT):
 	f = Dataset(fileT, 'r')
 	print(fileT)
 
-    # read lat/lon (start points) and lat1/lon1 (end points)
+	# read lat/lon (start points) and lat1/lon1 (end points)
 	lon = (f.variables['lon'][:])
 	lon1 = (f.variables['lon1'][0])
 	lat = (f.variables['lat'][:])
@@ -191,7 +190,7 @@ def getFowlerdriftMonthV3(rawdatapath, year, month, m, mean=0):
 	
 	x=0
 	for file in files:
-	     
+
 		uvelT, vvelT=getFowlerDrift(file,lonsF)
 
 		xvel,yvel = m.rotate_vector(uvelT,vvelT,lonsF,latsF)
@@ -208,14 +207,14 @@ def getFowlerdriftMonthV3(rawdatapath, year, month, m, mean=0):
 	return xptsF, yptsF, driftFmon, lonsF, latsF
 
 def getFowlerLonLat(mF, rawdatapath):
-    # need to use Fowler map to ensure drifts are orientated correctly
-    fowlerPath = rawdatapath+'/ICE_DRIFT/FOWLER/'
-    lonlatF = loadtxt(fowlerPath+'/north_x_y_lat_lon.txt')
-    lonsF = np.np.reshape(lonlatF[:, 3], (361, 361))
-    latsF = np.np.reshape(lonlatF[:, 2], (361, 361))
-    xptsF, yptsF = mF(lonsF, latsF)
+	# need to use Fowler map to ensure drifts are orientated correctly
+	fowlerPath = rawdatapath+'/ICE_DRIFT/FOWLER/'
+	lonlatF = loadtxt(fowlerPath+'/north_x_y_lat_lon.txt')
+	lonsF = np.np.reshape(lonlatF[:, 3], (361, 361))
+	latsF = np.np.reshape(lonlatF[:, 2], (361, 361))
+	xptsF, yptsF = mF(lonsF, latsF)
 
-    return latsF, lonsF, xptsF, yptsF
+	return latsF, lonsF, xptsF, yptsF
 
 def get_day_concSN_NRT(datapath, year, month, day, alg=0, pole='A', vStr='v1.1', mask=1, maxConc=0, lowerConc=0, monthMean=0):
 	if (alg==0):
@@ -517,7 +516,7 @@ def getCDRconcproj(proj, fileT, mask=1, maxConc=0, lowerConc=0):
 	f = Dataset(fileT, 'r')
 	print(fileT)
 
-        # read lat/lon (start points) and lat1/lon1 (end points)
+	# read lat/lon (start points) and lat1/lon1 (end points)
 	lon = (f.variables['longitude'][:])
 	lat = (f.variables['latitude'][:])
 	# Convert percent to conc!
@@ -692,113 +691,113 @@ def get_region_maskAOsnow(datapath, mplot, xypts_return=0, latN=60):
 		return region_maskAO
 
 def getGrid(outPath, dx):
-  """Get model grid data"""
+	"""Get model grid data"""
 
-  dxStr=str(int(dx/1000))+'km'
-  gridData=load(outPath+'gridData'+dxStr+'.txt')
-  lonG=gridData[0]
-  latG=gridData[1]
-  xptsG=gridData[2]
-  yptsG=gridData[3]
+	dxStr=str(int(dx/1000))+'km'
+	gridData=load(outPath+'gridData'+dxStr+'.txt')
+	lonG=gridData[0]
+	latG=gridData[1]
+	xptsG=gridData[2]
+	yptsG=gridData[3]
 
-  return lonG, latG, xptsG, yptsG
+	return lonG, latG, xptsG, yptsG
 
 def getDays(year1, month1, day1, year2, month2, day2):
-  """Get days in model time period
-  """
-  numDaysYear1=getLeapYr(year1)
+	"""Get days in model time period
+	"""
+	numDaysYear1=getLeapYr(year1)
 
-  dT01 = datetime.datetime(year1, 1, 1)
-  d1 = datetime.datetime(year1, month1+1, day1+1)
-  d2 = datetime.datetime(year2, month2+1, day2+1)
-  startDayT=(d1 - dT01).days
-  numDaysT=(d2 - d1).days+1
+	dT01 = datetime.datetime(year1, 1, 1)
+	d1 = datetime.datetime(year1, month1+1, day1+1)
+	d2 = datetime.datetime(year2, month2+1, day2+1)
+	startDayT=(d1 - dT01).days
+	numDaysT=(d2 - d1).days+1
 
-  fmt = '%d%m%Y'
-  date1Str=d1.strftime(fmt)
-  date2Str=d2.strftime(fmt)
+	fmt = '%d%m%Y'
+	date1Str=d1.strftime(fmt)
+	date2Str=d2.strftime(fmt)
 
-  return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
+	return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
 
 def getSTOSIWIGday(m, dayFiles, delim, mask_hs=1):
-  """  Get all snow radar data from all files in one OIB campaign day
-  """ 
-  convFactor=0.7809 # Speed of light to speed of light through snow
-  lats_total=[] 
-  lons_total=[]
-  xpts_total=[]
-  ypts_total=[]
-  snow_thickness_total=[]
+	"""  Get all snow radar data from all files in one OIB campaign day
+	""" 
+	convFactor=0.7809 # Speed of light to speed of light through snow
+	lats_total=[] 
+	lons_total=[]
+	xpts_total=[]
+	ypts_total=[]
+	snow_thickness_total=[]
 
-  for fileT in dayFiles:
-    #print 'File:', fileT
-    print (fileT)
-    data = genfromtxt(fileT, delimiter=delim, skip_header=0, dtype=float)
-    # data is a table-like structure (a numpy recarray) in which you can access columns and rows easily
-    lats = data[:, 1].astype(float)
-    lons = data[:, 2].astype(float)
-    snowRange = np.round(data[:, 3].astype(float), decimals=3)
-    snowDepth= snowRange*convFactor
+	for fileT in dayFiles:
+		#print 'File:', fileT
+		print (fileT)
+		data = genfromtxt(fileT, delimiter=delim, skip_header=0, dtype=float)
+		# data is a table-like structure (a numpy recarray) in which you can access columns and rows easily
+		lats = data[:, 1].astype(float)
+		lons = data[:, 2].astype(float)
+		snowRange = np.round(data[:, 3].astype(float), decimals=3)
+		snowDepth= snowRange*convFactor
 
-    if (mask_hs==1):
-      goodhs=where((snowDepth>=0.)&(snowDepth<=1.5))
-      lats = array(lats[goodhs])
-      lons = array(lons[goodhs])
-      
-      snowDepth = array(snowDepth[goodhs])
+		if (mask_hs==1):
+			goodhs=where((snowDepth>=0.)&(snowDepth<=1.5))
+			lats = array(lats[goodhs])
+			lons = array(lons[goodhs])
 
-    lats_total.extend(lats)
-    lons_total.extend(lons)
+			snowDepth = array(snowDepth[goodhs])
 
-    snow_thickness_total.extend(snowDepth)
+		lats_total.extend(lats)
+		lons_total.extend(lons)
 
-    xpts, ypts = m(lons, lats)
-    xpts_total.extend(xpts)
-    ypts_total.extend(ypts)
+		snow_thickness_total.extend(snowDepth)
 
-  return xpts_total, ypts_total, lats_total, lons_total, snow_thickness_total
+		xpts, ypts = m(lons, lats)
+		xpts_total.extend(xpts)
+		ypts_total.extend(ypts)
+
+	return xpts_total, ypts_total, lats_total, lons_total, snow_thickness_total
 
 
 def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
-  """  Get all snow radar data from all days within a campaign year.
+	"""  Get all snow radar data from all days within a campaign year.
 
-     Calls getSTOSIWIGday
-  """ 
+	 Calls getSTOSIWIGday
+	""" 
 
-  if (snowTypeT=='GSFC'):
-    delim='\t'
-    endStr='txt'
-  elif (snowTypeT=='JPL'):
-    delim=','
-    endStr='JPL'
-  elif (snowTypeT=='SRLD'):
-    delim=','
-    endStr='srld'
+	if (snowTypeT=='GSFC'):
+		delim='\t'
+		endStr='txt'
+	elif (snowTypeT=='JPL'):
+		delim=','
+		endStr='JPL'
+	elif (snowTypeT=='SRLD'):
+		delim=','
+		endStr='srld'
 
-  print(snowTypeT, yearT)
-  folders = glob(dataPath+'/ICEBRIDGE/STOSIWIG/'+snowTypeT+'/'+str(yearT)+'*')
-  print ('folders', folders)
-  datesY=[folder[-8:] for folder in folders]
+	print(snowTypeT, yearT)
+	folders = glob(dataPath+'/ICEBRIDGE/STOSIWIG/'+snowTypeT+'/'+str(yearT)+'*')
+	print ('folders', folders)
+	datesY=[folder[-8:] for folder in folders]
 
 
-  latsY=[] 
-  lonsY=[]
-  xptsY=[]
-  yptsY=[]
-  snowY=[]
+	latsY=[] 
+	lonsY=[]
+	xptsY=[]
+	yptsY=[]
+	snowY=[]
 
-  for folder in folders:
-    dayFilesT=glob(folder+'/*.'+endStr)
-    #for day in folder 
+	for folder in folders:
+		dayFilesT=glob(folder+'/*.'+endStr)
+		#for day in folder 
 
-    xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(m, dayFilesT, delim)
-    xptsY.append(xptsD)
-    yptsY.append(yptsD)
-    latsY.append(latsD)
-    lonsY.append(lonsD)
-    snowY.append(snowD)
+		xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(m, dayFilesT, delim)
+		xptsY.append(xptsD)
+		yptsY.append(yptsD)
+		latsY.append(latsD)
+		lonsY.append(lonsD)
+		snowY.append(snowD)
 
-  return xptsY, yptsY, latsY, lonsY, snowY, datesY
+	return xptsY, yptsY, latsY, lonsY, snowY, datesY
 
 def getWarren(lonT, latT, monthT):
 	H_0 = [28.01, 30.28, 33.89, 36.8, 36.93, 36.59, 11.02, 4.64, 15.81, 22.66, 25.57, 26.67]
@@ -825,167 +824,167 @@ def getWarren(lonT, latT, monthT):
 	return np.array(Hsw)
 
 def bindataN(x, y, z, xG, yG, binsize=0.01, retbin=True, retloc=True):
-    """
-    Place unevenly spaced 2D data on a grid by 2D binning (nearest
-    neighbor interpolation).
-    
-    Parameters
-    ----------
-    x : ndarray (1D)
-        The idependent data x-axis of the grid.
-    y : ndarray (1D)
-        The idependent data y-axis of the grid.
-    z : ndarray (1D)
-        The dependent data in the form z = f(x,y).
-    binsize : scalar, optional
-        The full width and height of each bin on the grid.  If each
-        bin is a cube, then this is the x and y dimension.  This is
-        the step in both directions, x and y. Defaults to 0.01.
-    retbin : boolean, optional
-        Function returns `bins` variable (see below for description)
-        if set to True.  Defaults to True.
-    retloc : boolean, optional
-        Function returns `wherebins` variable (see below for description)
-        if set to True.  Defaults to True.
-   
-    Returns
-    -------
-    grid : ndarray (2D)
-        The evenly gridded data.  The value of each cell is the median
-        value of the contents of the bin.
-    bins : ndarray (2D)
-        A grid the same shape as `grid`, except the value of each cell
-        is the number of points in that bin.  Returns only if
-        `retbin` is set to True.
-    wherebin : list (2D)
-        A 2D list the same shape as `grid` and `bins` where each cell
-        contains the indicies of `z` which contain the values stored
-        in the particular bin.
+	"""
+	Place unevenly spaced 2D data on a grid by 2D binning (nearest
+	neighbor interpolation).
 
-    Revisions
-    ---------
-    2010-07-11  ccampo  Initial version
-    """
-    # get extrema values.
-    xmin, xmax = xG.min(), xG.max()
-    ymin, ymax = yG.min(), yG.max()
+	Parameters
+	----------
+	x : ndarray (1D)
+		The idependent data x-axis of the grid.
+	y : ndarray (1D)
+		The idependent data y-axis of the grid.
+	z : ndarray (1D)
+		The dependent data in the form z = f(x,y).
+	binsize : scalar, optional
+		The full width and height of each bin on the grid.  If each
+		bin is a cube, then this is the x and y dimension.  This is
+		the step in both directions, x and y. Defaults to 0.01.
+	retbin : boolean, optional
+		Function returns `bins` variable (see below for description)
+		if set to True.  Defaults to True.
+	retloc : boolean, optional
+		Function returns `wherebins` variable (see below for description)
+		if set to True.  Defaults to True.
 
-    # make coordinate arrays.
-    xi      = xG[0]
-    yi      = yG[:, 0] #np.arange(ymin, ymax+binsize, binsize)
-    xi, yi = np.meshgrid(xi,yi)
+	Returns
+	-------
+	grid : ndarray (2D)
+		The evenly gridded data.  The value of each cell is the median
+		value of the contents of the bin.
+	bins : ndarray (2D)
+		A grid the same shape as `grid`, except the value of each cell
+		is the number of points in that bin.  Returns only if
+		`retbin` is set to True.
+	wherebin : list (2D)
+		A 2D list the same shape as `grid` and `bins` where each cell
+		contains the indicies of `z` which contain the values stored
+		in the particular bin.
 
-    # make the grid.
-    grid           = np.zeros(xi.shape, dtype=x.dtype)
-    nrow, ncol = grid.shape
-    if retbin: bins = np.copy(grid)
+	Revisions
+	---------
+	2010-07-11  ccampo  Initial version
+	"""
+	# get extrema values.
+	xmin, xmax = xG.min(), xG.max()
+	ymin, ymax = yG.min(), yG.max()
 
-    # create list in same shape as grid to store indices
-    if retloc:
-        wherebin = np.copy(grid)
-        wherebin = wherebin.tolist()
+	# make coordinate arrays.
+	xi      = xG[0]
+	yi      = yG[:, 0] #np.arange(ymin, ymax+binsize, binsize)
+	xi, yi = np.meshgrid(xi,yi)
 
-    # fill in the grid.
-    for row in range(nrow):
-        for col in range(ncol):
-            xc = xi[row, col]    # x coordinate.
-            yc = yi[row, col]    # y coordinate.
+	# make the grid.
+	grid           = np.zeros(xi.shape, dtype=x.dtype)
+	nrow, ncol = grid.shape
+	if retbin: bins = np.copy(grid)
 
-            # find the position that xc and yc correspond to.
-            posx = np.abs(x - xc)
-            posy = np.abs(y - yc)
-            ibin = np.logical_and(posx < binsize/2., posy < binsize/2.)
-            ind  = np.where(ibin == True)[0]
+	# create list in same shape as grid to store indices
+	if retloc:
+		wherebin = np.copy(grid)
+		wherebin = wherebin.tolist()
 
-            # fill the bin.
-            bin = z[ibin]
-            if retloc: wherebin[row][col] = ind
-            if retbin: bins[row, col] = bin.size
-            if bin.size != 0:
-                binval         = np.mean(bin)
-                grid[row, col] = binval
-            else:
-                grid[row, col] = np.nan   # fill empty bins with nans.
+	# fill in the grid.
+	for row in range(nrow):
+		for col in range(ncol):
+			xc = xi[row, col]    # x coordinate.
+			yc = yi[row, col]    # y coordinate.
 
-    # return the grid
-    if retbin:
-        if retloc:
-            return grid, bins, wherebin
-        else:
-            return grid, bins
-    else:
-        if retloc:
-            return grid, wherebin
-        else:
-            return grid				
+			# find the position that xc and yc correspond to.
+			posx = np.abs(x - xc)
+			posy = np.abs(y - yc)
+			ibin = np.logical_and(posx < binsize/2., posy < binsize/2.)
+			ind  = np.where(ibin == True)[0]
+
+			# fill the bin.
+			bin = z[ibin]
+			if retloc: wherebin[row][col] = ind
+			if retbin: bins[row, col] = bin.size
+			if bin.size != 0:
+				binval         = np.mean(bin)
+				grid[row, col] = binval
+			else:
+				grid[row, col] = np.nan   # fill empty bins with nans.
+
+	# return the grid
+	if retbin:
+		if retloc:
+			return grid, bins, wherebin
+		else:
+			return grid, bins
+	else:
+		if retloc:
+			return grid, wherebin
+		else:
+			return grid				
 
 def correlateVars(var1, var2):
 #correlate two variables
-    trend, intercept, r_a, prob, stderr = stats.linregress(var1, var2)
-    sig = 100.*(1.-prob)
-    return trend, sig, r_a, intercept 
+	trend, intercept, r_a, prob, stderr = stats.linregress(var1, var2)
+	sig = 100.*(1.-prob)
+	return trend, sig, r_a, intercept 
 
 def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, region='', converttocm=0):
 
-  data=xr.open_dataset(outPath+folderStr+'/budgets/'+totalOutStr+'.nc') 
-  
-  iceConcDay=array(data['iceConc'][dayT])
-  #iceConcDay=ma.masked_where(iceConcDay<0.15, iceConcDay)
+	data=xr.open_dataset(outPath+folderStr+'/budgets/'+totalOutStr+'.nc') 
+
+	iceConcDay=array(data['iceConc'][dayT])
+	#iceConcDay=ma.masked_where(iceConcDay<0.15, iceConcDay)
 
 
-  snowBudget=[]
-  for outString in outStrings:
-    if (outString=='density'):
-      snowDataT=data['density'][dayT]
-      #snowDataT= ma.masked_where(iceConcDays<0.15, snowDataT)
-      snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
-      # Need at least 2 cm for a density to be used (stop weird behaviour at very low snow depth)
-      snowDepthT=data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1]
-      snowDataT= ma.masked_where(snowDepthT<0.02, snowDataT)
+	snowBudget=[]
+	for outString in outStrings:
+		if (outString=='density'):
+			snowDataT=data['density'][dayT]
+			#snowDataT= ma.masked_where(iceConcDays<0.15, snowDataT)
+			snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
+			# Need at least 2 cm for a density to be used (stop weird behaviour at very low snow depth)
+			snowDepthT=data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1]
+			snowDataT= ma.masked_where(snowDepthT<0.02, snowDataT)
 
-    elif (outString=='snowDepthNew'):
-      snowDataT=data['snowDepth'][dayT, 0]
-      #snowDataT= ma.masked_where(iceConcDays<0.15, snowDataT)
-      snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
-    elif (outString=='snowDepthOld'):
-      snowDataT=data['snowDepth'][dayT, 1]
-      snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
-    elif (outString=='snowDepthTotal'):
-      snowDataT=data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1]
-      snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
-    elif (outString=='snowDepthTotalConc'):
-      snowDataT=(data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1])/iceConcDay
-      snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
-    elif (outString=='Precip'):
-      # Meters of water equivalent (summed over the time period)
-      if (dayT>0):
-        precipT=data[outString][0:dayT] #.fillna(0)
-      else:
-        precipT=data[outString]
-      snowDataT = sum(precipT/200., axis=0)
+		elif (outString=='snowDepthNew'):
+			snowDataT=data['snowDepth'][dayT, 0]
+			#snowDataT= ma.masked_where(iceConcDays<0.15, snowDataT)
+			snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
+		elif (outString=='snowDepthOld'):
+			snowDataT=data['snowDepth'][dayT, 1]
+			snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
+		elif (outString=='snowDepthTotal'):
+			snowDataT=data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1]
+			snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
+		elif (outString=='snowDepthTotalConc'):
+			snowDataT=(data['snowDepth'][dayT, 0] + data['snowDepth'][dayT, 1])/iceConcDay
+			snowDataT= ma.masked_where(iceConcDay<0.15, snowDataT)
+		elif (outString=='Precip'):
+			# Meters of water equivalent (summed over the time period)
+			if (dayT>0):
+				precipT=data[outString][0:dayT] #.fillna(0)
+			else:
+				precipT=data[outString]
+			snowDataT = sum(precipT/200., axis=0)
 
-    else:
+		else:
 
-      snowDataT = data[outString][dayT]
+			snowDataT = data[outString][dayT]
 
-    #print 'region len', len(region)
-    if (len(region)>0):
-      print ('masking region')
-      regionM=load(outPath+region)
-      snowDataT=ma.masked_where(regionM<0.5, snowDataT)
+		#print 'region len', len(region)
+		if (len(region)>0):
+			print ('masking region')
+			regionM=load(outPath+region)
+			snowDataT=ma.masked_where(regionM<0.5, snowDataT)
 
-    snowDataT= ma.masked_where(np.isnan(snowDataT), snowDataT)
-    
-    if (converttocm==1):
-      snowDataT=snowDataT*100.
+		snowDataT= ma.masked_where(np.isnan(snowDataT), snowDataT)
 
-    snowBudget.append(snowDataT)
-  
-  if (size(outStrings)>1):
-    return snowBudget
-  else:
-    print ('1 var')
-    return snowDataT
+		if (converttocm==1):
+			snowDataT=snowDataT*100.
+
+		snowBudget.append(snowDataT)
+
+	if (size(outStrings)>1):
+		return snowBudget
+	else:
+		print ('1 var')
+		return snowDataT
 
 def get_region_mask(datapath, mplot, xypts_return=0):
 	header = 300
