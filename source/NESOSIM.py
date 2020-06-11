@@ -198,6 +198,21 @@ def calcWindPacking(windDayT, snowDepthT0):
 	snowWindPackNetT=snowWindPackLossT+snowWindPackGainT#*iceConcDaysG[x]
 	return snowWindPackLossT, snowWindPackGainT, snowWindPackNetT
 
+def fillMaskAndNaNWithZero(arr):
+	""" Helper function: Fill masked and nan values in an array 
+	with 0, in place
+
+	Args:
+		arr (var): A numpy ndarray
+	returns:
+		None (performs operation in place)
+
+	"""
+	arr[np.isnan(arr)] = 0.
+	arr = ma.filled(arr, 0.)
+	arr[~np.isfinite(arr)] = 0.
+
+
 
 def calcDynamics(driftGday, snowDepthsT, dx):
 	""" Snow loss/gain from ice dynamics
@@ -217,13 +232,10 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 	dhsvelxdxDiv = snowDepthsT*np.gradient(driftGday[0]*deltaT, dx, axis=(1)) #convert from m/s to m per day, #1 here is the columns, so in the x direction
 	dhsvelydyDiv = snowDepthsT*np.gradient(driftGday[1]*deltaT, dx, axis=(0)) #0 here is the rows, so in the y direction
 
-	# fill masked and nans with 0  
-	dhsvelxdxDiv[np.isnan(dhsvelxdxDiv)]=0.
-	dhsvelxdxDiv=ma.filled(dhsvelxdxDiv, 0.)
-	dhsvelxdxDiv[~np.isfinite(dhsvelxdxDiv)]=0.
-	dhsvelydyDiv[np.isnan(dhsvelydyDiv)]=0.
-	dhsvelydyDiv=ma.filled(dhsvelydyDiv, 0.)
-	dhsvelydyDiv[~np.isfinite(dhsvelydyDiv)]=0.
+	# fill masked and nans with 0
+
+	fillMaskAndNaNWithZero(dhsvelxdxDiv)
+	fillMaskAndNaNWithZero(dhsvelydyDiv)
 
 	#print 'dh:', np.amax(dhsvelydyDiv)
 
@@ -235,13 +247,10 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 	dhsvelydyAdv = driftGday[1]*deltaT*np.gradient(snowDepthsT, dx, axis=(1))  #0 here is the rows, so in the y direction
 
 	#print 'dh1:', np.amax(dhsvelxdxAdv)
-	# fill masked and nans with 0  
-	dhsvelxdxAdv[np.isnan(dhsvelxdxAdv)]=0.
-	dhsvelxdxAdv[~np.isfinite(dhsvelxdxAdv)]=0.
-	dhsvelxdxAdv=ma.filled(dhsvelxdxAdv, 0.)
-	dhsvelydyAdv[np.isnan(dhsvelydyAdv)]=0.
-	dhsvelydyAdv=ma.filled(dhsvelydyAdv, 0.)
-	dhsvelydyAdv[~np.isfinite(dhsvelydyAdv)]=0.
+	# fill masked and nans with 0
+	fillMaskAndNaNWithZero(dhsvelxdxAdv)
+	fillMaskAndNaNWithZero(dhsvelydyAdv)
+	
 	#print 'dh2:', np.amax(dhsvelxdxAdv)
 
 
