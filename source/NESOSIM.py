@@ -583,7 +583,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 	CSstr = ''
 	if scaleCS:
 		# load scaling factors; assumes scaling factors are in same directory as NESOSIM.py
-		monthlyScalingFactors = xr.open_dataset('scale_coeffs_{}.nc'.format(precipVar))['scale_factors']
+		monthlyScalingFactors = xr.open_dataset('{}scale_coeffs_{}.nc'.format(ancDataPath, precipVar))['scale_factors']
 		CSstr = 'CSscaled'
 
 	saveStr= precipVar+CSstr+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut

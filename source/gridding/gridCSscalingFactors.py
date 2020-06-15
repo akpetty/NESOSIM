@@ -21,7 +21,7 @@ import pandas as pd
 import xarray as xr
 
 
-
+ancDataPath = '../../anc_data/'
 xptsG, yptsG, latG, lonG, proj = cF.create_grid()
 
 # print(xptsG, yptsG)
@@ -43,7 +43,7 @@ R_FN = ['EI','E5','M2']
 R_IDX = 1 # which reanalysis to select
 
 # cloudsat scaling factors (as given in Cabaj et al 2020)
-cs = pd.read_csv('weights_{}.csv'.format(R_FN[R_IDX]),index_col='time',comment='#')
+cs = pd.read_csv('{}weights_{}.csv'.format(ancDataPath,R_FN[R_IDX]),index_col='time',comment='#')
 
 
 # interpolate over centre of grid (to match previous NESOSIM version domain);
@@ -106,4 +106,4 @@ scale_da = xr.DataArray(scale_factors, dims=['time','x','y'],coords={'time':cs.i
 print(scale_da)
 
 # save to netcdf file
-scale_da.to_netcdf('scale_coeffs_{}.nc'.format(REANs[R_IDX]))
+scale_da.to_netcdf('{}scale_coeffs_{}.nc'.format(ancDataPath,REANs[R_IDX]))
