@@ -498,10 +498,30 @@ def densityCalc(snowDepthsT, iceConcDayT, region_maskT):
 
 	return densityT
 
+def doyToMonth(day, year):
+	""" given the day-of-year day and the year, return an integer
+	corresponding to the month during which the day occurs
+	"""
+	date_fmt = np.datetime64('{}-01-01'.format(year)) + np.timedelta64(day-1,'D')
+	return date_fmt.astype(object).month
+
+def applyScaling(product,factor,scaling_type='mul'):
+	"""Apply a scaling factor to a given product; the factor
+	must either be a scalar or have the same dimensions as
+	the product
+	
+	"""
+	if scaling_type=='mul':
+		# multiplicative scaling
+		product_scaled = product*factor
+
+	return product_scaled
+
+
 def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.', anc_data_pathT='../anc_data/', figPathT='../Figures/', 
 	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', densityTypeT='variable', 
 	outStr='', extraStr='', IC=2, windPackFactorT=0.1, windPackThreshT=5., leadLossFactorT=0.1, dynamicsInc=1, leadlossInc=1, 
-	windpackInc=1, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000):
+	windpackInc=1, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000,scaleCS=False):
 	""" 
 
 	Main model function
@@ -560,8 +580,17 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 		#print (int(date.strftime('%Y%m%d')))
 		dates.append(int(date.strftime('%Y%m%d')))
 
-	saveStr= precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut
-	saveStrNoDate=precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr
+	CSstr = ''
+	if scaleCS:
+		# load scaling factors; assumes scaling factors are in same directory as NESOSIM.py
+		monthlyScalingFactors = xr.open_dataset('scale_coeffs_{}.nc'.format(precipVar))['scale_factors']
+		CSstr = 'CSscaled'
+
+	saveStr= precipVar+CSstr+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut
+
+	saveStrNoDate=precipVar+CSstr+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr
+	
+
 	print ('Saving to:', saveStr)
 	 #'../../DataOutput/'
 
@@ -622,6 +651,13 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 		# Load daily data 
 		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(yearCurrent, day, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
 		
+		# apply CloudSat scaling if used
+		if scaleCS:
+			currentMonth = doyToMonth(day, yearCurrent) # get current month
+			scalingFactor = monthlyScalingFactors.loc[currentMonth,:,:] # get scaling factor for current month
+			# apply scaling to current day's precipitation
+			precipDayG = applyScaling(precipDayG, scalingFactor,scaling_type='mul').values
+
 		# Calculate snow budgets
 		calcBudget(xptsG, yptsG, snowDepths, iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG,
 			density, precipDays, iceConcDays, windDays, tempDays, snowAcc, snowOcean, snowAdv, 
