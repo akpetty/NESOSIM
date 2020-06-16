@@ -30,10 +30,9 @@
 
 """
 
-from mpl_toolkits.basemap import Basemap, shiftgrid
 import numpy as np
-from pylab import *
 import numpy.ma as ma
+import matplotlib.cm as cm
 import xarray as xr
 import pandas as pd
 import os
@@ -43,7 +42,6 @@ import netCDF4 as nc4
 import utils as cF
 from scipy.interpolate import griddata
 import cartopy.crs as ccrs
-import utils as cF
 import datetime
 
 def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
@@ -136,8 +134,7 @@ def OutputSnowModelFinal(savePath, saveStr, lons, lats, snowVolT,snowDepthT, den
 	temps[:] = np.around(tempT, decimals=4)
 	day[:]=datesT
 
-	from datetime import datetime
-	today = datetime.today()
+	today = datetime.datetime.today()
 
 	#Add global attributes
 	f.author = "Alek Petty"
@@ -166,7 +163,7 @@ def calcLeadLoss(snowDepthT, windDayT, iceConcDaysT):
 
 	"""
 
-	windT= where(windDayT>windPackThresh, 1, 0)
+	windT= np.where(windDayT>windPackThresh, 1, 0)
 	 
 	snowWindT = -(windT*leadLossFactor*deltaT*snowDepthT*windDayT*(1-iceConcDaysT)) #*iceConcDaysG[x]
 	return snowWindT
@@ -190,7 +187,7 @@ def calcWindPacking(windDayT, snowDepthT0):
 	"""
 
 
-	windT= where(windDayT>windPackThresh, 1, 0)
+	windT= np.where(windDayT>windPackThresh, 1, 0)
 	
 	# snow loss from fresh layer through wind packing to old layer
 	snowWindPackLossT=-windPackFactor*deltaT*windT*snowDepthT0 #*iceConcDaysG[x]
@@ -200,6 +197,21 @@ def calcWindPacking(windDayT, snowDepthT0):
 	
 	snowWindPackNetT=snowWindPackLossT+snowWindPackGainT#*iceConcDaysG[x]
 	return snowWindPackLossT, snowWindPackGainT, snowWindPackNetT
+
+def fillMaskAndNaNWithZero(arr):
+	""" Helper function: Fill masked and nan values in an array 
+	with 0, in place
+
+	Args:
+		arr (var): A numpy ndarray
+	returns:
+		None (performs operation in place)
+
+	"""
+	arr[np.isnan(arr)] = 0.
+	arr = ma.filled(arr, 0.)
+	arr[~np.isfinite(arr)] = 0.
+
 
 
 def calcDynamics(driftGday, snowDepthsT, dx):
@@ -220,13 +232,10 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 	dhsvelxdxDiv = snowDepthsT*np.gradient(driftGday[0]*deltaT, dx, axis=(1)) #convert from m/s to m per day, #1 here is the columns, so in the x direction
 	dhsvelydyDiv = snowDepthsT*np.gradient(driftGday[1]*deltaT, dx, axis=(0)) #0 here is the rows, so in the y direction
 
-	# fill masked and nans with 0  
-	dhsvelxdxDiv[np.isnan(dhsvelxdxDiv)]=0.
-	dhsvelxdxDiv=ma.filled(dhsvelxdxDiv, 0.)
-	dhsvelxdxDiv[~np.isfinite(dhsvelxdxDiv)]=0.
-	dhsvelydyDiv[np.isnan(dhsvelydyDiv)]=0.
-	dhsvelydyDiv=ma.filled(dhsvelydyDiv, 0.)
-	dhsvelydyDiv[~np.isfinite(dhsvelydyDiv)]=0.
+	# fill masked and nans with 0
+
+	fillMaskAndNaNWithZero(dhsvelxdxDiv)
+	fillMaskAndNaNWithZero(dhsvelydyDiv)
 
 	#print 'dh:', np.amax(dhsvelydyDiv)
 
@@ -238,13 +247,10 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 	dhsvelydyAdv = driftGday[1]*deltaT*np.gradient(snowDepthsT, dx, axis=(1))  #0 here is the rows, so in the y direction
 
 	#print 'dh1:', np.amax(dhsvelxdxAdv)
-	# fill masked and nans with 0  
-	dhsvelxdxAdv[np.isnan(dhsvelxdxAdv)]=0.
-	dhsvelxdxAdv[~np.isfinite(dhsvelxdxAdv)]=0.
-	dhsvelxdxAdv=ma.filled(dhsvelxdxAdv, 0.)
-	dhsvelydyAdv[np.isnan(dhsvelydyAdv)]=0.
-	dhsvelydyAdv=ma.filled(dhsvelydyAdv, 0.)
-	dhsvelydyAdv[~np.isfinite(dhsvelydyAdv)]=0.
+	# fill masked and nans with 0
+	fillMaskAndNaNWithZero(dhsvelxdxAdv)
+	fillMaskAndNaNWithZero(dhsvelydyAdv)
+	
 	#print 'dh2:', np.amax(dhsvelxdxAdv)
 
 
@@ -254,16 +260,16 @@ def calcDynamics(driftGday, snowDepthsT, dx):
 
 	# Set limits on how much snow can be lost? 
 	# May be redundant
-	mask0=where(-snowAdvAllT[0]>snowDepthsT[0])
+	mask0=np.where(-snowAdvAllT[0]>snowDepthsT[0])
 	snowAdvAllT[0][mask0]=-snowDepthsT[0][mask0]
 
-	mask1=where(-snowAdvAllT[1]>snowDepthsT[1])
+	mask1=np.where(-snowAdvAllT[1]>snowDepthsT[1])
 	snowAdvAllT[1][mask1]=-snowDepthsT[1][mask1]
 
-	mask2=where(-snowDivAllT[0]>snowDepthsT[0])
+	mask2=np.where(-snowDivAllT[0]>snowDepthsT[0])
 	snowDivAllT[0][mask2]=-snowDepthsT[0][mask2]
 
-	mask3=where(-snowDivAllT[1]>snowDepthsT[1])
+	mask3=np.where(-snowDivAllT[1]>snowDepthsT[1])
 	snowDivAllT[1][mask3]=-snowDepthsT[1][mask3]
 	
 
@@ -447,29 +453,29 @@ def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr
 	dayStr='%03d' %dayT
 	
 	try:
-		precipDayG=load(forcingPath+'Precip/'+precipVar+'/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+		precipDayG=np.load(forcingPath+'Precip/'+precipVar+'/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
 	except:
 		if (dayStr=='365'):
 			print('no leap year data, using data from the previous day')
-			precipDayG=load(forcingPath+'Precip/'+precipVar+'/sf/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+'364', allow_pickle=True)
+			precipDayG=np.load(forcingPath+'Precip/'+precipVar+'/sf/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+'364', allow_pickle=True)
 		
 		else:
 			print('No precip data so exiting!')
 			exit()
 	
 
-	windDayG=load(forcingPath+'Winds/'+windVar+'/'+str(yearT)+'/'+windVar+'winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
-	iceConcDayG=load(forcingPath+'IceConc/'+concVar+'/'+str(yearT)+'/iceConcG_'+concVar+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	windDayG=np.load(forcingPath+'Winds/'+windVar+'/'+str(yearT)+'/'+windVar+'winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+	iceConcDayG=np.load(forcingPath+'IceConc/'+concVar+'/'+str(yearT)+'/iceConcG_'+concVar+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
 	
 	try:
-		driftGdayG=load(forcingPath+'IceDrift/'+driftVar+'/'+str(yearT)+'/'+driftVar+'_driftG'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)	
+		driftGdayG=np.load(forcingPath+'IceDrift/'+driftVar+'/'+str(yearT)+'/'+driftVar+'_driftG'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)	
 	except:
 		# if no drifts exist for that day then just set drifts to masked array (i.e. no drift).
 		print('No drift data')
 		driftGdayG=ma.masked_all((2, iceConcDayG.shape[0], iceConcDayG.shape[1]))
 	
 	try:
-		tempDayG=load(forcingPath+'Temp/'+precipVar+'/t2m/'+str(yearT)+'/t2m'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+		tempDayG=np.load(forcingPath+'Temp/'+precipVar+'/t2m/'+str(yearT)+'/t2m'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
 	except:
 		# if no drifts exist for that day then just set drifts to masked array (i.e. no drift).
 		print('No temp data')
@@ -492,10 +498,30 @@ def densityCalc(snowDepthsT, iceConcDayT, region_maskT):
 
 	return densityT
 
+def doyToMonth(day, year):
+	""" given the day-of-year day and the year, return an integer
+	corresponding to the month during which the day occurs
+	"""
+	date_fmt = np.datetime64('{}-01-01'.format(year)) + np.timedelta64(day-1,'D')
+	return date_fmt.astype(object).month
+
+def applyScaling(product,factor,scaling_type='mul'):
+	"""Apply a scaling factor to a given product; the factor
+	must either be a scalar or have the same dimensions as
+	the product
+	
+	"""
+	if scaling_type=='mul':
+		# multiplicative scaling
+		product_scaled = product*factor
+
+	return product_scaled
+
+
 def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.', anc_data_pathT='../anc_data/', figPathT='../Figures/', 
 	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', densityTypeT='variable', 
 	outStr='', extraStr='', IC=2, windPackFactorT=0.1, windPackThreshT=5., leadLossFactorT=0.1, dynamicsInc=1, leadlossInc=1, 
-	windpackInc=1, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000):
+	windpackInc=1, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000,scaleCS=False):
 	""" 
 
 	Main model function
@@ -554,8 +580,17 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 		#print (int(date.strftime('%Y%m%d')))
 		dates.append(int(date.strftime('%Y%m%d')))
 
-	saveStr= precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut
-	saveStrNoDate=precipVar+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr
+	CSstr = ''
+	if scaleCS:
+		# load scaling factors; assumes scaling factors are in same directory as NESOSIM.py
+		monthlyScalingFactors = xr.open_dataset('{}scale_coeffs_{}.nc'.format(ancDataPath, precipVar))['scale_factors']
+		CSstr = 'CSscaled'
+
+	saveStr= precipVar+CSstr+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr+'-'+dateOut
+
+	saveStrNoDate=precipVar+CSstr+'sf'+windVar+'winds'+driftVar+'drifts'+concVar+'sic'+'rho'+densityTypeT+'_IC'+str(IC)+'_DYN'+str(dynamicsInc)+'_WP'+str(windpackInc)+'_LL'+str(leadlossInc)+'_WPF'+str(windPackFactorT)+'_WPT'+str(windPackThreshT)+'_LLF'+str(leadLossFactorT)+'-'+dxStr+extraStr+outStr
+	
+
 	print ('Saving to:', saveStr)
 	 #'../../DataOutput/'
 
@@ -579,13 +614,13 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 	if (IC>0):
 		if (IC==1):
 			# August Warren climatology snow depths
-			ICSnowDepth = load(forcingPath+'InitialConditions/AugSnow'+dxStr, allow_pickle=True)
+			ICSnowDepth = np.load(forcingPath+'InitialConditions/AugSnow'+dxStr, allow_pickle=True)
 			print('Initialize with August Warren climatology')
 		elif (IC==2):
 			# Alek v2 (capped at 10 m) ICs based on MW method
 			try:
 				# Convert to meters!!
-				ICSnowDepth = load(forcingPath+'InitialConditions/ICsnow'+str(year1)+'-'+dxStr+extraStr, allow_pickle=True)
+				ICSnowDepth = np.load(forcingPath+'InitialConditions/ICsnow'+str(year1)+'-'+dxStr+extraStr, allow_pickle=True)
 				print('Initialize with new v1.1 scaled initial conditions')
 				print(np.amax(ICSnowDepth))
 			except:
@@ -616,6 +651,13 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 		# Load daily data 
 		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(yearCurrent, day, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
 		
+		# apply CloudSat scaling if used
+		if scaleCS:
+			currentMonth = doyToMonth(day, yearCurrent) # get current month
+			scalingFactor = monthlyScalingFactors.loc[currentMonth,:,:] # get scaling factor for current month
+			# apply scaling to current day's precipitation
+			precipDayG = applyScaling(precipDayG, scalingFactor,scaling_type='mul').values
+
 		# Calculate snow budgets
 		calcBudget(xptsG, yptsG, snowDepths, iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG,
 			density, precipDays, iceConcDays, windDays, tempDays, snowAcc, snowOcean, snowAdv, 

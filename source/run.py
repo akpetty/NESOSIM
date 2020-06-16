@@ -40,7 +40,7 @@ NESOSIM.main(year1=yearS, month1=monthS, day1=dayS, year2=yearE, month2=monthE-1
 	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', 
 	densityTypeT='variable', extraStr='v11', outStr='', IC=2, 
 	windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=5.8e-7,
-	dynamicsInc=1, leadlossInc=1, windpackInc=1)
+	dynamicsInc=1, leadlossInc=1, windpackInc=1,scaleCS=True)
 
 
 
