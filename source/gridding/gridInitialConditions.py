@@ -38,7 +38,7 @@ from config import figure_path
 
 anc_data_path='../../anc_data/'
 dx=50000
-xptsG, yptsG, latG, lonG, proj, crs = cF.create_grid(dxRes=dx)
+xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 print(xptsG)
 print(yptsG)
 

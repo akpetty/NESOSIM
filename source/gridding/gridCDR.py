@@ -97,10 +97,6 @@ def main(year, start_month=0, end_month=11, extraStr='v11', dx=50000, data_path=
 			
 			iceConcDay[np.where(region_mask>10)]=np.nan
 
-			concHole=np.mean(iceConcDay[(lats0>pmask-2.) & (lats0<pmask-1.5)])
-			#print concHole
-			iceConcDay = np.where((lats0 >=pmask-2.), concHole, iceConcDay)
-
 			iceConcDayG = griddata((xpts0.flatten(), ypts0.flatten()), iceConcDay.flatten(), (xptsG, yptsG), method='linear')
 			
 			iceConcDayG[np.where(iceConcDayG<0.15)]=0

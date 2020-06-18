@@ -80,7 +80,7 @@ def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=r
 	
 	reanalysis='ERA5'
 
-	xptsG, yptsG, latG, lonG, proj, crs = cF.create_grid(dxRes=dx)
+	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
 	print(yptsG)
 
