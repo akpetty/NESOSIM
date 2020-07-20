@@ -30,6 +30,8 @@ import pyproj
 import numpy.ma as ma
 from scipy.ndimage.filters import gaussian_filter
 import datetime
+from astropy.convolution import convolve
+from astropy.convolution import Gaussian2DKernel
 
 def getLeapYr(year):
 	leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
@@ -96,6 +98,43 @@ def int_smooth_drifts(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor
 
 	return driftFG
 
+def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=1, truncate=1):
+	# use info from https://stackoverflow.com/questions/18697532/gaussian-filtering-a-image-with-nan-in-python
+	# to better rapply to nan regions
+	nx=xptsG.shape[0]
+	ny=xptsG.shape[1]
+
+	driftFG=ma.masked_all((2, nx, ny))
+
+	# Bodge way of making a mask
+	badData = np.zeros((xptsF.shape))
+	# & (latsF>88)) if we want to mask the pole hole
+	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
+
+	driftFx = driftFmon[0][np.where(badData<0.5)]
+	driftFy = driftFmon[1][np.where(badData<0.5)]
+	xptsFM = xptsF[np.where(badData<0.5)]
+
+	yptsFM = yptsF[np.where(badData<0.5)]
+
+	driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
+	driftFGy = griddata((xptsFM, yptsFM), driftFy, (xptsG, yptsG), method='linear')
+
+	#driftFGx[np.isnan(driftFGx)]=0
+	#driftFGy[np.isnan(driftFGy)]=0
+
+	kernel = Gaussian2DKernel(x_stddev=sigma_factor)
+
+	driftFGxg = convolve(driftFGx, kernel)
+	driftFGyg = convolve(driftFGy, kernel)
+
+	# Mask based on original gridded data
+	driftFG[0]=ma.masked_where(np.isnan(driftFGx), driftFGxg)
+	driftFG[1]=ma.masked_where(np.isnan(driftFGy), driftFGyg)
+	
+
+	return driftFG
+	
 def getOSISAFDrift(m, fileT):
 	"""
 	Calculate the OSI-SAF vectors on our map projection
@@ -592,7 +631,7 @@ def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_lon
 	
 	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
 	# for some reason this extent can freak out if you set 180 to 180
-	ax.set_extent([-179, 179, 50, 90], ccrs.PlateCarree())
+	ax.set_extent([-179, 179, 45, 90], ccrs.PlateCarree())
 	cax,kw = mcbar.make_axes(ax,location='bottom',pad=0.05,shrink=0.7)
 	cb=fig.colorbar(cs,cax=cax,extend='both',**kw)
 	cb.set_label(varStr+' ('+units_lab+')',size=8)

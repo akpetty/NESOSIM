@@ -111,7 +111,7 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=os
 				drift_day_xy=np.stack((ux, vy))
 				#print drift_day_xy.shape
 
-				drift_xyG = cF.int_smooth_drifts(xptsG, yptsG, xptsO, yptsO, latsO, drift_day_xy, sigma_factor=2)
+				drift_xyG = cF.int_smooth_drifts_v2(xptsG, yptsG, xptsO, yptsO, latsO, drift_day_xy, sigma_factor=1)
 				#drift_xyG=drift_xyG.astype('f2')
 
 			else:

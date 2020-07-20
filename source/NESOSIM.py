@@ -19,14 +19,14 @@
 		xarray/pandas
 		netCDF4
 		matplotlib
-		basemap
+		cartopy
 
 		More information on installation is given in the README file.
 
 	Update history:
 		1st March 2018: Version 0.1
 		1st October 2018: Version 1.0 (updated through review process)
-		1st May 2020: Version 2.0 (updated for ICESat-2 processing)
+		1st May 2020: Version 1.1 (updated for ICESat-2 processing)
 
 """
 
@@ -43,6 +43,8 @@ import utils as cF
 from scipy.interpolate import griddata
 import cartopy.crs as ccrs
 import datetime
+from astropy.convolution import convolve
+from astropy.convolution import Gaussian2DKernel
 
 def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 	precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowWind, snowWindPack):
@@ -365,14 +367,26 @@ def calcBudget(xptsG, yptsG, snowDepths, iceConcDayT, precipDayT, driftGdayT, wi
 	snowDepths[x+1, 1][np.where(snowDepths[x+1, 1]<0.)]=0.
 	snowDepths[x+1][np.where(np.isnan(snowDepths[x+1]))]=0.
 	
-	if (x==100):
+	#if (x==100):
 		# Pick a random day to do a test on the snow depths
-		print ('Snow depth test on day 100 (new snow):', np.amax(snowDepths[x+1, 0]))
-		print ('Snow depth test on day 100 (old snow):', np.amax(snowDepths[x+1, 1]))
+		#print ('Snow depth test on day 100 (new snow):', np.amax(snowDepths[x+1, 0]))
+		#print ('Snow depth test on day 100 (old snow):', np.amax(snowDepths[x+1, 1]))
+	
 	#snowDepths[x+1].filled(0.)
 
-	snowDepths[x+1, 0] = gaussian_filter(snowDepths[x+1, 0], sigma=0.3)
-	snowDepths[x+1, 1] = gaussian_filter(snowDepths[x+1, 1], sigma=0.3)
+	# apply a Gaussian smoothing filter to filter out any noise
+	# Astropy good at dealing with intepolation/smoothing around the boundaries of nans (i.e. it doesn't include them)
+	# Scipy griddata can't so ends up adding a buffer along the boundary of no interpolation unless you specify zeroes
+	
+	snowDepths_nan=np.copy(snowDepths[x+1])
+	snowDepths_nan[0][np.where(region_maskG>10)]=np.nan
+	snowDepths_nan[1][np.where(region_maskG>10)]=np.nan
+
+	# use astropy convolve to smooth using the gaussian kernal
+	kernel = Gaussian2DKernel(x_stddev=0.5)
+	snowDepths[x+1, 0] = convolve(snowDepths_nan[0], kernel)
+	snowDepths[x+1, 1] = convolve(snowDepths_nan[1], kernel)
+
 
 	# Do this again after smoothing
 	snowDepths[x+1, 0][np.where(snowDepths[x+1, 0]<0.)]=0.
@@ -443,7 +457,7 @@ def plot_budgets_cartopy(lonG, latG, precipDaysT, windDaysT, snowDepthsT, snowOc
 	cF.plot_gridded_cartopy(lonG, latG, snowWindT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowLeadLoss_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
 	cF.plot_gridded_cartopy(lonG, latG, snowWindPackT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowWindPack_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
 
-	cF.plot_gridded_cartopy(lonG, latG, densityT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDensity_'+totalOutStr, units_lab='kg/m3', varStr='Snow density', minval=300, maxval=360, cmap_1=cm.viridis)
+	cF.plot_gridded_cartopy(lonG, latG, densityT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDensity_'+totalOutStr, units_lab='kg/m3', varStr='Snow density', minval=220, maxval=340, cmap_1=cm.viridis)
 
 
 def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr):
@@ -574,12 +588,12 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 
 	# make this into a small function
 	dates=[]
-	for x in range(1, numDays+1):
+	for x in range(0, numDays):
 		#print x
-		date = datetime.datetime(year1, month1+1, day1+1) + datetime.timedelta(x) #This assumes that the year is 2007
+		date = datetime.datetime(year1, month1+1, day1+1) + datetime.timedelta(x)
 		#print (int(date.strftime('%Y%m%d')))
 		dates.append(int(date.strftime('%Y%m%d')))
-
+	print(dates)
 	CSstr = ''
 	if scaleCS:
 		# load scaling factors; assumes scaling factors are in same directory as NESOSIM.py
@@ -616,6 +630,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 			# August Warren climatology snow depths
 			ICSnowDepth = np.load(forcingPath+'InitialConditions/AugSnow'+dxStr, allow_pickle=True)
 			print('Initialize with August Warren climatology')
+		
 		elif (IC==2):
 			# Alek v2 (capped at 10 m) ICs based on MW method
 			try:
@@ -641,12 +656,14 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 	# Loop over days 
 	for x in range(numDays-1):	
 		day = x+startDay
-		print ('day:', day)
+		
 
 		if (day>=numDaysYear1):
 			# If day goes beyond the number of days in initial year, jump to the next year
 			day=day-numDaysYear1
 			yearCurrent=year2
+		
+		print ('day:', day)
 		
 		# Load daily data 
 		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(yearCurrent, day, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
