@@ -64,7 +64,7 @@ for i in range(12):
 
 	# monthly scaling factors; load into an array with values in corners; 
 	# values to be interpolated over the centre of the model domain
-	z0 = np.array([[cs.loc[i+1, 'q4'], cs.loc[i+1, 'q1']], [cs.loc[i+1, 'q3'], cs.loc[i+1, 'q2']]])
+	z0 = np.array([[cs.loc[i+1, 'q4'], cs.loc[i+1, 'q3']], [cs.loc[i+1, 'q1'], cs.loc[i+1, 'q2']]])
 	# interpolate over centre (square bounded by 60 N)
 	f = interp2d(x0, y0, z0, kind='linear')
 	# fill centre with interpolation
@@ -93,7 +93,7 @@ for i in range(12):
 	scale_factors[i,156:,:23]=scale_factors[i,155,23]
 
 	# plot to double-check (optional)
-	plt.imshow(scale_factors[i],origin='lower',interpolation=None)
+	plt.imshow(scale_factors[i],origin='upper',interpolation=None)
 	plt.title('Scaling factors for month {}'.format(i+1))
 	plt.colorbar()
 	# plt.savefig('scaling_factors_full_{}_{}.png'.format(i+1,R_FN[R_IDX]))
