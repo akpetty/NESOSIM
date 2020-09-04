@@ -42,7 +42,7 @@ from config import figure_path
 def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Winds/ERA5/', fig_path=figure_path+'Winds/ERA5/', anc_data_path='../../anc_data/'):
 
 
-	xptsG, yptsG, latG, lonG, proj = cF.create_grid()
+	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
 	print(yptsG)
 
