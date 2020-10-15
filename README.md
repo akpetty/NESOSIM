@@ -1,4 +1,4 @@
-# The NASA Eulerian Snow on Sea Ice Model (NESOSIM)
+# The NASA Eulerian Snow on Sea Ice Model (NESOSIM), v1.1
 **Contact: Alek Petty / alek.a.petty@nasa.gov / www.alekpetty.com**
 
 The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the depth and density fo snow on sea ice across the polar oceans.  
@@ -13,14 +13,19 @@ For more details of the model physics and preliminary results/calibration effort
 
 Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on Sea Ice Model (NESOSIM): Initial model development and analysis, Geosci. Mod. Dev.
 
-Versions:
- v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.   
+Versions:   
+ v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.    
+ 
  v1.1: This latest version of NESOSIM includes a few minor updates. Thanks to Alex Cabaj for the help with some of this. Changes include: 
   - Upgrade of the code to Python 3.
-  - 50 km (increased from 100 km) grid resolution.
-  - An extended Arctic domain to cover all the peripheral seas.
   - Switched from Basemap to pyproj/cartopy (surprisingly painful).
+  - Option of variable grids, e.g 50 km (increased from 100 km) grid resolution.
+  - An extended Arctic domain to cover all the peripheral seas.
   - Introduction of CloudSat scaling parameters by Alex Cabaj (Cabaj et al., 2020).
+  - Smoothed dynamics terms (using astropy's gaussian smoothing filter) to reduce noise in the dynamics. 
+  - Replaced masked arrays with nans to be consistent throughout. Improved performance along coastlines. 
+  - New wind-atmosphere loss term (similar to lead loss but not concentration dependent).
+  - Various small bug fixes.
 
 ## Getting Started
 
