@@ -14,10 +14,10 @@
 
 	Update history:
 		20/04/2019: Version 1
-		05/01/2020: Version 2
+		05/01/2020: Version 2 - new domain and using cartopy/pyproj for gridding
 
 	To do:
-		Introduce a better pole hole interpolation method!
+		Introduce a better pole hole interpolation method
 
 """
 
@@ -38,7 +38,7 @@ from config import forcing_save_path
 from config import figure_path
 
 
-def main(year, start_month=0, end_month=11, extraStr='v11', dx=50000, data_path=cdr_raw_path, out_path=forcing_save_path+'IceConc/CDR/', fig_path=figure_path+'IceConc/CDR/', anc_data_path='../../anc_data/'):
+def main(year, start_month=8, end_month=11, extraStr='v11_n', dx=100000, data_path=cdr_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceConc/CDR/', anc_data_path='../../anc_data/'):
 		
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -58,8 +58,8 @@ def main(year, start_month=0, end_month=11, extraStr='v11', dx=50000, data_path=
 	else:
 		monIndex = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
-	if not os.path.exists(out_path+'/'+str(year)):
-		os.makedirs(out_path+'/'+str(year))
+	if not os.path.exists(out_path+'/'+dxStr+'/IceConc/CDR/'+str(year)):
+		os.makedirs(out_path+'/'+dxStr+'/IceConc/CDR/'+str(year))
 	
 	for month in range(start_month, end_month+1):
 		print(month)
@@ -104,15 +104,15 @@ def main(year, start_month=0, end_month=11, extraStr='v11', dx=50000, data_path=
 
 			iceConcDayG[np.where(region_maskG>10)]=np.nan
 
-			cF.plot_gridded_cartopy(lonG, latG, iceConcDayG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'iceConcG_-'+str(year)+mstr+dayMonStr+extraStr, 
+			cF.plot_gridded_cartopy(lonG, latG, iceConcDayG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'iceConcG_-'+str(year)+mstr+dayMonStr+dxStr+extraStr, 
 				date_string=str(year), month_string=mstr+dayMonStr, extra=extraStr, varStr='CDR ice conc', units_lab='', minval=0, maxval=1, cmap_1=plt.cm.viridis)
 		
-			iceConcDayG.dump(out_path+str(year)+'/iceConcG_CDR'+dxStr+'-'+str(year)+'_d'+daySumStr+extraStr)
+			iceConcDayG.dump(out_path+'/'+dxStr+'/IceConc/CDR/'+str(year)+'/iceConcG_CDR'+dxStr+'-'+str(year)+'_d'+daySumStr+extraStr)
 
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(2018, 2020+1, 1):
+	for y in range(2010, 2010+1, 1):
 		print(y)
 		main(y)
 

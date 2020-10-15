@@ -76,7 +76,7 @@ def get_cumulative_hotdays(temp_year_gridcell):
 #temp2mYear['t2m'].compute().reduce(get_cumulative_hotdays, dim=('time'))
 #test= temp2mYear['t2m'].compute().groupby("latitude", "longitude").reduce(get_cumulative_hotdays, dim=xr.ALL_DIMS)
 
-def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Temp/ERA5/', fig_path=figure_path+'Temp/ERA5/', anc_data_path='../../anc_data/'):
+def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Temp/ERA5/', fig_path=figure_path+'Temp/ERA5/', anc_data_path='../../anc_data/'):
 	
 	reanalysis='ERA5'
 
@@ -112,7 +112,7 @@ def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=r
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(2018, 2019+1, 1):
+	for y in range(2010, 2020+1, 1):
 		print(y)
 		main(y)
 

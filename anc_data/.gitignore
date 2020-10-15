@@ -1,2 +1,3 @@
 !.gitignore
 /initial_conditions/*
+distance-to-coast_2m.nc

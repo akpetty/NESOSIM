@@ -32,6 +32,23 @@ from scipy.ndimage.filters import gaussian_filter
 import datetime
 from astropy.convolution import convolve
 from astropy.convolution import Gaussian2DKernel
+import pandas as pd
+
+def bin_oib(xptsOIB, yptsOIB, xptsG, yptsG, oibVar):
+	""" Bin data using numpy histogram"""
+
+	xbins = yptsG[:, 0]+(dx/2) # these are the columns which are actually the y values
+	ybins = xptsG[0]+(dx/2) 
+	xbins=np.append(xbins, xbins[-1]+dx)
+	ybins=np.append(ybins, ybins[-1]+dx)
+
+	denominator, xedges, yedges = np.histogram2d(xptsOIB, yptsOIB,bins=(xbins, ybins))
+	nominator, _, _ = np.histogram2d(xptsOIB, yptsOIB,bins=(xbins, ybins), weights=oibVar)
+	oibG = nominator / denominator
+	
+	# transpose to go from columns/rows to x/y
+	oibG=oibG.T
+	return oibG
 
 def getLeapYr(year):
 	leapYrs=[1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
@@ -123,7 +140,7 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 	#driftFGx[np.isnan(driftFGx)]=0
 	#driftFGy[np.isnan(driftFGy)]=0
 
-	kernel = Gaussian2DKernel(x_stddev=sigma_factor)
+	kernel = Gaussian2DKernel(x_stddev=sigma_factor, y_stddev=sigma_factor)
 
 	driftFGxg = convolve(driftFGx, kernel)
 	driftFGyg = convolve(driftFGy, kernel)
@@ -134,7 +151,16 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 	
 
 	return driftFG
-	
+
+def getOIBbudgetDays(datesOIBT, yearT, monthT, dayT):
+	"""Get number of days from start month of model run for the OIB dates"""
+
+	d0 = datetime.datetime(yearT, monthT+1, dayT+1)
+	fmt = '%Y%m%d'
+	OIBdatetimes = [datetime.datetime.strptime(s, fmt) for s in datesOIBT]
+	OIBnumDays= [(d1 - d0).days for d1 in OIBdatetimes]
+	return OIBnumDays
+
 def getOSISAFDrift(m, fileT):
 	"""
 	Calculate the OSI-SAF vectors on our map projection
@@ -203,7 +229,7 @@ def get_osisaf_drifts_proj(proj, fileT):
 	# TL: no need to rotate : the xt, and yt are already in the basemap's projection
 
 	# compute magnitude (speed scalar)
-	mag=np.sqrt(xt**2+yt**2)
+	mag=np.sqrt((xt**2)+(yt**2))
 
 	return xt, yt, mag, lat, lon, xpts, ypts
 
@@ -513,8 +539,8 @@ def create_grid(epsg_string='3413', dxRes=50000, lllat=36, llon=-90, urlat=36, u
 	ny = int((urcrn[1]-llcrn[1])/dxRes)+1
 	print(nx, ny)
 
-	x = llcrn[0]+dxRes*np.indices((ny,nx),np.float32)[0] # 1=column indicdes
-	y = llcrn[1]+dxRes*np.indices((ny,nx),np.float32)[1] # 0=row indices
+	x = llcrn[0]+dxRes*np.indices((ny,nx),np.float32)[1] # 1=column indices
+	y = llcrn[1]+dxRes*np.indices((ny,nx),np.float32)[0] # 0=row indices
 
 	lons, lats = p(x, y, inverse=True)
 	
@@ -584,7 +610,7 @@ def read_icebridge_snowdepths(proj, dataPath, year, mask=1):
 	ypts_total=[]
 	snow_thickness_days=[]
 	dates=[]
-	if (year>2013):
+	if (year>2012):
 		files = glob(dataPath+'/quicklook/*'+str(year)+'*/*.txt')
 	else:
 		files = glob(dataPath+'/final/*'+str(year)+'*/*.txt')
@@ -597,7 +623,8 @@ def read_icebridge_snowdepths(proj, dataPath, year, mask=1):
 		snow_thickness = data[:, 7].astype(float)
 		xpts,ypts = proj(lons, lats)
 
-		date=files[x][-12:-4]
+		date = str(year)+files[x].split('/')[-1].split(str(year))[-1][0:4]
+		print(date)
 
 		if (mask==1):
 			good_data=np.where((snow_thickness>=0.)&(snow_thickness<=2.))
@@ -612,7 +639,23 @@ def read_icebridge_snowdepths(proj, dataPath, year, mask=1):
 
 	return xpts_total, ypts_total, dates, snow_thickness_days
 	
+def get_coastal_mask(path, proj):
+	
+	coast_file = data=xr.open_dataset(path+'distance-to-coast_2m.nc')
+	lat_c = coast_file['lat'][:]
+	lon_c = coast_file['lon'][:]
+	z_c = coast_file['z'][:]
 
+	#REMOVE SOME OF THE COAST DISTANCE DATA THAT ISN'T NEEDED
+	lat_c=lat_c[4250:-1]
+	lon_c=lon_c[::20]
+	z_c=z_c[4250:-1, ::20]
+	print(np.amin(lat_c), np.amax(lat_c))
+	print(np.amin(lon_c), np.amax(lon_c))
+
+	xpts, ypts = proj(lon_c, lat_c)
+
+	return xpts, ypts, z_c
 
 def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', varStr='',
  minval=1., maxval=1., date_string='', month_string='', extra='',cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
@@ -642,7 +685,7 @@ def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_lon
 	plt.savefig(out+'.png', dpi=200)
 	plt.close(fig)
 
-def plot_drift_cartopy(lons, lats, xpts, ypts, var_u, var_v, var_mag, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', units_vec='', varStr='',
+def plot_drift_cartopy(lons, lats, xpts, ypts, var_x, var_y, var_mag, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', units_vec='', varStr='',
  minval=1., maxval=1., date_string='year', month_string='months', extra='', res=2, scale_vec=1, vector_val=1, cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
 
 	#proj = ccrs.epsg(epsg_string)
@@ -653,8 +696,8 @@ def plot_drift_cartopy(lons, lats, xpts, ypts, var_u, var_v, var_mag, proj=ccrs.
 	ax = plt.axes(projection = proj)
 	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
 	cs = ax.pcolormesh(lons, lats, var_mag, vmin=minval, vmax=maxval, transform=ccrs.PlateCarree(), zorder=2)
-
-	Q = ax.quiver(xpts[::res, ::res], ypts[::res, ::res], var_u[::res, ::res], var_v[::res, ::res], units='inches',scale=scale_vec, zorder=5)
+	
+	Q = ax.quiver(xpts[::res, ::res], ypts[::res, ::res], var_x[::res, ::res], var_y[::res, ::res], units='inches',scale=scale_vec, zorder=5)
 	
 	ax.coastlines(zorder=3)
 	ax.gridlines(draw_labels=True,
@@ -676,6 +719,48 @@ def plot_drift_cartopy(lons, lats, xpts, ypts, var_u, var_v, var_mag, proj=ccrs.
 	plt.savefig(out+'.png', dpi=200)
 	plt.close(fig)
 
+def plot_drift_cartopy_uv(lons, lats, var_u, var_v, var_mag, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', units_vec='', varStr='',
+ minval=1., maxval=1., date_string='year', month_string='months', extra='', res=2, scale_vec=1, vector_val=1, cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
+
+	#proj = ccrs.epsg(epsg_string)
+	#proj = ccrs.LambertAzimuthalEqualArea(central_longitude=0.0, central_latitude=90, false_easting=0.0, false_northing=0.0, globe=None)
+	
+	# The projection keyword determines how the plot will look
+	fig=plt.figure(figsize=(5, 6))
+	ax = plt.axes(projection = proj)
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	cs = ax.pcolormesh(lons, lats, var_mag, vmin=minval, vmax=maxval, transform=ccrs.PlateCarree(), zorder=2)
+
+	# Following https://github.com/SciTools/cartopy/issues/1179 we need to rescale the 
+	u_src_crs = var_u / np.cos(lats / 180 * np.pi)
+	v_src_crs = var_v
+	magnitude = ma.sqrt(var_u**2 + var_v**2)
+	magn_src_crs = ma.sqrt(u_src_crs**2 + v_src_crs**2)
+
+	var_u_scaled = u_src_crs * magnitude / magn_src_crs
+	var_v_scaled = v_src_crs * magnitude / magn_src_crs
+
+	Q = ax.quiver(lons[::res, ::res], lats[::res, ::res], var_u_scaled[::res, ::res], var_v_scaled[::res, ::res], transform=ccrs.PlateCarree(), units='inches',scale=scale_vec, zorder=5)
+	
+	ax.coastlines(zorder=3)
+	ax.gridlines(draw_labels=True,
+              linewidth=0.22, color='gray', alpha=0.5, linestyle='--')
+	
+	#ax.imshow(data, transform=ccrs.PlateCarree(), zorder=2)
+	# for some reason this extent can freak out if you set 180 to 180
+	ax.set_extent([-179, 179, 50, 90], ccrs.PlateCarree())
+	cax,kw = mcbar.make_axes(ax,location='bottom',pad=0.05,shrink=0.7)
+	cb=fig.colorbar(cs,cax=cax,extend='both',**kw)
+	cb.set_label(varStr+units_lab,size=8)
+	ax.set_title(' '+varStr+' '+date_string+month_string+extra)
+
+	qk = plt.quiverkey(Q, 3389969, 3389969, vector_val, str(vector_val)+' '+units_vec, coordinates='data', zorder = 11)   
+
+
+	plt.tight_layout()
+	#print 'Saving..'
+	plt.savefig(out+'.png', dpi=200)
+	plt.close(fig)
 
 def get_psnlatslons(data_path):
 	mask_latf = open(data_path+'/OTHER/psn25lats_v3.dat', 'rb')
@@ -755,7 +840,7 @@ def getSTOSIWIGday(m, dayFiles, delim, mask_hs=1):
 	for fileT in dayFiles:
 		#print 'File:', fileT
 		print (fileT)
-		data = genfromtxt(fileT, delimiter=delim, skip_header=0, dtype=float)
+		data = np.genfromtxt(fileT, delimiter=delim, skip_header=0, dtype=float)
 		# data is a table-like structure (a numpy recarray) in which you can access columns and rows easily
 		lats = data[:, 1].astype(float)
 		lons = data[:, 2].astype(float)
@@ -814,6 +899,47 @@ def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
 		#for day in folder 
 
 		xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(m, dayFilesT, delim)
+		xptsY.append(xptsD)
+		yptsY.append(yptsD)
+		latsY.append(latsD)
+		lonsY.append(lonsD)
+		snowY.append(snowD)
+
+	return xptsY, yptsY, latsY, lonsY, snowY, datesY
+
+def getSTOSIWIGyear_proj(proj, dataPath, snowTypeT, yearT):
+	"""  Get all snow radar data from all days within a campaign year.
+
+	 Calls getSTOSIWIGday
+	""" 
+
+	if (snowTypeT=='GSFC'):
+		delim='\t'
+		endStr='txt'
+	elif (snowTypeT=='JPL'):
+		delim=','
+		endStr='JPL'
+	elif (snowTypeT=='SRLD'):
+		delim=','
+		endStr='srld'
+
+	print(snowTypeT, yearT)
+	folders = glob(dataPath+'/'+snowTypeT+'/'+str(yearT)+'*')
+	print ('folders', folders)
+	datesY=[folder[-8:] for folder in folders]
+
+
+	latsY=[] 
+	lonsY=[]
+	xptsY=[]
+	yptsY=[]
+	snowY=[]
+
+	for folder in folders:
+		dayFilesT=glob(folder+'/*.'+endStr)
+		#for day in folder 
+
+		xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(proj, dayFilesT, delim)
 		xptsY.append(xptsD)
 		yptsY.append(yptsD)
 		latsY.append(latsD)
@@ -947,6 +1073,20 @@ def correlateVars(var1, var2):
 	sig = 100.*(1.-prob)
 	return trend, sig, r_a, intercept 
 
+def get_nesosim_day(outPath, end_year, day, converttocm=1):
+
+	files=glob(outPath+'*'+str(end_year)+'.nc')
+	data=xr.open_dataset(files[0]) 
+	snow_depth=data['snowDepth'][day].values
+	lat=data['latitude'][:].values
+	lon=data['longitude'][:].values
+
+	if (converttocm==1):
+		snow_depth=snow_depth*100.
+
+	return snow_depth, lat, lon
+
+
 def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, region='', converttocm=0):
 
 	data=xr.open_dataset(outPath+folderStr+'/budgets/'+totalOutStr+'.nc') 
@@ -1035,7 +1175,7 @@ def get_region_mask(datapath, mplot, xypts_return=0):
 	else:
 		return region_mask
 
-def densityClim(dayT):
+def densityClim(dayT, dataPath):
 	"""Assign initial snow density based on daily climatology"""
 
 	densityClim=pd.read_csv(dataPath+'/Daily_Density.csv', header=0, names=['Day', 'Density'])
@@ -1073,4 +1213,5 @@ def get_region_mask_pyproj(anc_data_path, proj, xypts_return=0):
 		return region_mask, xpts, ypts
 	else:
 		return region_mask
+
 

@@ -27,27 +27,12 @@ import os
 import pyproj
 import cartopy.crs as ccrs
 
-from config import forcing_save_path
-from config import figure_path
-from config import oib_data_path
-anc_data_path='../../anc_data/'
+from config import forcing_save_path, figure_path, oib_data_path, anc_data_path
 
-def bin_oib(xptsOIB, yptsOIB, xptsG, yptsG, oibVar):
-	""" Bin data using numpy histogram"""
 
-	xbins=xptsG[:,0]-(dx/2)
-	ybins=yptsG[0, :]-(dx/2)
-	xbins=np.append(xbins, xbins[-1]+dx)
-	ybins=np.append(ybins, ybins[-1]+dx)
 
-	denominator, xedges, yedges = np.histogram2d(xptsOIB, yptsOIB,bins=(xbins, ybins))
-	nominator, _, _ = np.histogram2d(xptsOIB, yptsOIB,bins=(xbins, ybins), weights=oibVar)
-	oibG = nominator / denominator
-	
-	return oibG
-
-dx=50000
-year=2018
+dx=100000
+year=2019
 extraStr='v11'
 xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 print(xptsG)
@@ -56,17 +41,18 @@ print(yptsG)
 dxStr=str(int(dx/1000))+'km'
 print(dxStr)
 
-region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
-region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
+#region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
+#region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
 
 xptsDays, yptsDays,oibdates, snowDays= cF.read_icebridge_snowdepths(proj, oib_data_path, year)
 
 for x in range(len(oibdates)):
 	# Loop through dates of each flight. I want to keep separate to compre to the daily NESOSIM data.
-	oib_dayG=bin_oib(xptsDays[x], yptsDays[x], xptsG, yptsG, snowDays[x])
+	oib_dayG=cF.bin_oib(xptsDays[x], yptsDays[x], xptsG, yptsG, snowDays[x])
+
 	cF.plot_gridded_cartopy(lonG, latG, oib_dayG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=figure_path+'/OIB/'+oibdates[x]+dxStr+extraStr, date_string=oibdates[x], month_string='', varStr='OIB snow depth ', units_lab=r'm', minval=0, maxval=0.6, cmap_1=plt.cm.viridis)
 		
-	oib_dayG.dump(forcing_save_path+'/OIB/'+oibdates[x]+dxStr+extraStr)
+	oib_dayG.dump(forcing_save_path+dxStr+'/OIB/'+str(year)+'/'+oibdates[x]+dxStr+extraStr)
 
 arr = np.hstack(xptsDays)
 

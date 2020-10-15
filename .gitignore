@@ -5,3 +5,13 @@ INFO
 ._commonFuncs.py
 ._README.md
 ._SnowBudget.png
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.pyc
+
+/source/__pycache/
+/source/config.py

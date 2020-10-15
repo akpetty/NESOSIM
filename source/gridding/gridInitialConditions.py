@@ -37,7 +37,7 @@ from config import forcing_save_path
 from config import figure_path
 
 anc_data_path='../../anc_data/'
-dx=50000
+dx=100000
 xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 print(xptsG)
 print(yptsG)
@@ -51,9 +51,9 @@ region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(
 reanalysis='ERA5'
 varStr='t2m'
 extraStr='v11'
-temp_path=forcing_save_path+'Temp/ERA5/'
-iceconc_path=forcing_save_path+'IceConc/CDR/'
-ic_path=forcing_save_path+'InitialConditions/'
+temp_path=forcing_save_path+dxStr+'/Temp/ERA5/'
+iceconc_path=forcing_save_path+dxStr+'/IceConc/CDR/'
+ic_path=forcing_save_path+dxStr+'/InitialConditions/'
 fig_path=figure_path+'Temp/ERA5/'
 
 t2mdurGAll=[]
@@ -92,7 +92,7 @@ for yearT in range(2018, 2019+1, 1):
 	# Convert to meters
 	W99yrT=W99yrT/100.
 
-	cF.plot_gridded_cartopy(lonG, latG, W99yrT, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/initial_conditions'+str(yearT)+extraStr, date_string=str(yearT), extra=extraStr, varStr='Snow depth ', units_lab=r'm', minval=0, maxval=0.12, cmap_1=plt.cm.viridis)
+	cF.plot_gridded_cartopy(lonG, latG, W99yrT, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/initial_conditions'+str(yearT)+dxStr+extraStr, date_string=str(yearT), extra=extraStr, varStr='Snow depth ', units_lab=r'm', minval=0, maxval=0.12, cmap_1=plt.cm.viridis)
 		
 	W99yrT.dump(ic_path+'ICsnow'+str(yearT)+'-'+dxStr+extraStr)
 

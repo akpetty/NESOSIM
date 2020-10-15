@@ -1,2 +1,2 @@
-gridReanalyses.py
-!.gitignore
+/.ipynb_checkpoints/*
+/v1_old/*

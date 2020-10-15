@@ -13,6 +13,7 @@
 
 	Update history:
 		10/01/2018: Version 1
+		10/01/2020: Version 2 - new domain and using cartopy/pyproj for gridding
 """
 
 import numpy as np
@@ -32,7 +33,7 @@ from config import forcing_save_path
 from config import figure_path
 
 
-def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=osisaf_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceDrift/OSISAF/', anc_data_path='../../AncData/'):
+def main(year, startMonth=0, endMonth=11, extraStr='v11_n', dx=100000, data_path=osisaf_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceDrift/OSISAF/', anc_data_path='../../AncData/'):
 
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -50,8 +51,8 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=os
 	else:
 		monIndex = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
-	if not os.path.exists(out_path+str(year)):
-		os.makedirs(out_path+str(year))
+	if not os.path.exists(out_path+'/'+dxStr+'/IceDrift/OSISAF/'+str(year)):
+		os.makedirs(out_path+'/'+dxStr+'/IceDrift/OSISAF/'+str(year))
 
 	if not os.path.exists(fig_path):
 		os.makedirs(fig_path)
@@ -105,38 +106,32 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=50000, data_path=os
 			if (np.size(glob(fileT))>0):
 				ux, vy, mag, latsO, lonsO, xptsO, yptsO = cF.get_osisaf_drifts_proj(proj, fileT)
 
-				#if we want to set masked values back to nan for gridding purposes
+				#Set masked values back to nan for gridding purposes
 				ux[np.where(ma.getmask(ux))]=np.nan
 				vy[np.where(ma.getmask(vy))]=np.nan
 				drift_day_xy=np.stack((ux, vy))
-				#print drift_day_xy.shape
 
 				drift_xyG = cF.int_smooth_drifts_v2(xptsG, yptsG, xptsO, yptsO, latsO, drift_day_xy, sigma_factor=1)
-				#drift_xyG=drift_xyG.astype('f2')
 
 			else:
 				# just set the daily drift to a masked array (no drifts available)
 				drift_xyG=ma.masked_all((2,xptsG.shape[0], xptsG.shape[1]))
 			#drift_day_xy[1] = vy 
-				
+			print(drift_xyG)	
 			# rotate cartesian vectors to zonal/meridional for cartopy plotting only
 			alpha = lonG*np.pi/180.
 			drift_uG = drift_xyG[0]*np.sin(alpha) + drift_xyG[1]*np.cos(alpha)
 			drift_vG = drift_xyG[0]*np.cos(alpha) - drift_xyG[1]*np.sin(alpha) 
 
-			cF.plot_drift_cartopy(lonG , latG , xptsG, yptsG, drift_xyG[0], drift_xyG[1], np.sqrt(drift_xyG[0]**2+drift_xyG[1]**2) , out=fig_path+str(year)+'_d'+dayStr+extraStr, units_lab='m/s', units_vec=r'm s$^{-1}$',
+			cF.plot_drift_cartopy(lonG , latG , xptsG, yptsG, drift_xyG[0], drift_xyG[1], np.sqrt(drift_xyG[0]**2+drift_xyG[1]**2) , out=fig_path+str(year)+'_d'+dayStr+dxStr+extraStr, units_lab='m/s', units_vec=r'm s$^{-1}$',
 				minval=0, maxval=0.5, vector_val=0.1, date_string=str(yearT)+mstr1+xstr1+'-'+str(year)+mstr2+xstr2, month_string='', varStr='OSI SAF ice drift ',cbar_type='max', cmap_1=plt.cm.viridis)
 				
-			drift_xyG.dump(forcing_save_path+str(year)+'/OSISAF_driftG'+dxStr+'-'+str(year)+'_d'+dayStr+extraStr)
+			drift_xyG.dump(out_path+'/'+dxStr+'/IceDrift/OSISAF/'+str(year)+'/OSISAF_driftG'+dxStr+'-'+str(year)+'_d'+dayStr+extraStr)
 
 #-- run main program
 if __name__ == '__main__':
 	
-	#dataPath = '/data/users/aapetty/Data/'
-	#figPath='/data/users/aapetty/Figures/NESOSIMdev/Drifts/'+product+extra+'/'
-	#outPath = '/data/users/aapetty/Forcings/Drifts/'+product+extra+'/'
-	
-	for year in range(2018, 2020+1, 1):
+	for year in range(2010, 2020+1, 1):
 		print(year)
 		main(year)
 	

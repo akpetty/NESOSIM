@@ -22,12 +22,12 @@ from config import forcing_save_path
 from config import model_save_path
 from config import figure_path
 
-yearS=2019
-monthS=7 # August = 7
-dayS=15
+yearS=2010
+monthS=8 # August = 7
+dayS=1
 
-yearE=2020
-monthE=3
+yearE=2016
+monthE=4 # 4 = april
 from calendar import monthrange
 # Find last day in that month
 dayE=monthrange(yearE, monthE+1)[1]
@@ -38,10 +38,10 @@ NESOSIM.main(year1=yearS, month1=monthS, day1=dayS, year2=yearE, month2=monthE, 
 	outPathT=model_save_path, 
 	forcingPathT=forcing_save_path, 
 	figPathT=figure_path+'Model/',
-	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', 
-	densityTypeT='variable', extraStr='v11', outStr='4x_v2_s03', IC=2, 
-	windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=11.6e-7,
-	dynamicsInc=1, leadlossInc=1, windpackInc=1,scaleCS=True)
+	precipVar='ERAI', windVar='ERAI', driftVar='OSISAF', concVar='CDR', 
+	icVar='ERAI', densityTypeT='variable', extraStr='v11', outStr='4x_v2_s03', IC=2, 
+	windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=2.9e-7,
+	dynamicsInc=1, leadlossInc=1, windpackInc=1,scaleCS=False, dx=100000)
 
 
 
