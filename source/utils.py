@@ -12,7 +12,7 @@
 
 	Update history:
 		03/01/2018: Version 1
-		05/10/2020: Version 2: Converted to Python 3
+		05/10/2020: Version 1.1: Converted to Python 3
 								Changed name to utils.py
 
 """
@@ -33,6 +33,182 @@ import datetime
 from astropy.convolution import convolve
 from astropy.convolution import Gaussian2DKernel
 import pandas as pd
+import netCDF4 as nc4
+import matplotlib.cm as cm
+import pandas as pd
+
+def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
+	precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowLead, snowAtm, snowWindPack):
+	""" Output snow model data using xarray
+
+	Args:
+		savePath (str): Path the the xarray data wil be saved to
+		reanalysisP (str): Reanalysis snowfall forcing used for this model run
+		saveStr (str): output string for saved filed
+		Remaining arguments* (vars): Model variables being saved
+
+	Output:
+		xarray data as basic netCDF files   
+    
+    """
+
+	precipData = xr.DataArray(precipDays, dims=('time', 'x', 'y'))
+	snowDepthsData = xr.DataArray(snowDepths, dims=('time', 'lyrs',  'x', 'y'))
+	snowAccData = xr.DataArray(snowAcc, dims=('time', 'x', 'y'))
+	snowDivData = xr.DataArray(snowDiv, dims=('time', 'x', 'y'))
+	snowAdvData = xr.DataArray(snowAdv, dims=('time', 'x', 'y'))
+	snowLeadData = xr.DataArray(snowLead, dims=('time', 'x', 'y'))
+	snowAtmData = xr.DataArray(snowAtm, dims=('time', 'x', 'y'))
+	snowWindPackData=xr.DataArray(snowWindPack, dims=('time', 'x', 'y'))
+	snowOceanData = xr.DataArray(snowOcean, dims=('time', 'x', 'y'))
+	#snowRidgeData = xr.DataArray(snowRidge, dims=('time', 'x', 'y'))
+	#snowDcationData = xr.DataArray(snowDcation, dims=('time', 'x', 'y'))
+	densityData = xr.DataArray(density, dims=('time', 'x', 'y'))
+	iceConcData = xr.DataArray(iceConcDays, dims=('time', 'x', 'y'))
+	windData = xr.DataArray(windDays, dims=('time', 'x', 'y'))
+
+	dataSet = xr.Dataset({'Precip': precipData, 'snowDepth': snowDepthsData, 'snowAcc': snowAccData, 'snowDiv': \
+		snowDivData,'snowAdv': snowAdvData, 'snowLead': snowLeadData,'snowAtm': snowAtmData,'snowWindPack': snowWindPackData,'snowOcean': \
+		snowOceanData, 'density': densityData, 'iceConc': iceConcData, 'winds': windData})
+
+	print ('saving to:', savePath+'/budgets/'+saveStr)
+
+	dataSet.to_netcdf(savePath+'/budgets/'+saveStr+'.nc') 
+
+
+def OutputSnowModelFinal(savePath, saveStr, lons, lats, xpts, ypts, snowVolT,snowDepthT, densityT, iceConcT, precipT, windsT, tempT, datesT, ice_conc_mask=0.5):
+	""" Read in xrarray data and save as netCDF 
+
+	Args:
+		savePath (str): Path the the xarray data wil be saved to
+		reanalysisP (str): Reanalysis snowfall forcing used for this model run
+		saveStr (str): output string for saved filed
+		Remaining arguments* (vars): Model variables being saved  
+    
+    """
+
+	f = nc4.Dataset(savePath+'/final/'+saveStr+'.nc','w', format='NETCDF4') 
+
+	projection = f.createVariable('projection', 'i4')
+	projection.long_name = "WGS 84 / NSIDC Sea Ice Polar Stereographic North (3413)" ;
+	projection.spatial_ref = "PROJCS[\"WGS 84 / NSIDC Sea Ice Polar Stereographic North\",GEOGCS[\"WGS 84\"[\"DATUM[\"WGS_1984\"[\"SPHEROID[\"WGS 84\",6378137,298.257223563[\"AUTHORITY[\"EPSG\",\"7030\"]][\"AUTHORITY[\"EPSG\",\"6326\"]][\"PRIMEM[\"Greenwich\",0[\"AUTHORITY[\"EPSG\",\"8901\"]][\"UNIT[\"degree\",0.0174532925199433[\"AUTHORITY[\"EPSG\",\"9122\"]][\"AUTHORITY[\"EPSG\",\"4326\"]][\"PROJECTION[\"Polar_Stereographic\"][\"PARAMETER[\"latitude_of_origin\",70][\"PARAMETER[\"central_meridian\",-45][\"PARAMETER[\"scale_factor\",1][\"PARAMETER[\"false_easting\",0][\"PARAMETER[\"false_northing\",0][\"UNIT[\"metre\",1[\"AUTHORITY[\"EPSG\",\"9001\"]][\"AXIS[\"X\",EAST][\"AXIS[\"Y\",NORTH][\"AUTHORITY[\"EPSG\",\"3413\"]]";
+	projection.grid_mapping_name = "polar_stereographic"
+	projection.proj4text = "+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs";
+	
+	print ('dimensions:', lons.shape[0], lons.shape[1], snowVolT.shape[0])
+	f.createDimension('x', lons.shape[0])
+	f.createDimension('y', lons.shape[1])
+	f.createDimension('day', snowVolT.shape[0])
+
+	longitude = f.createVariable('longitude', 'f4', ('x', 'y'))
+	latitude = f.createVariable('latitude', 'f4', ('x', 'y'))  
+	xgrid = f.createVariable('xgrid', 'f4', ('x', 'y'))
+	ygrid = f.createVariable('ygrid', 'f4', ('x', 'y'))  
+
+	snowDepth = f.createVariable('snow_depth', 'f4', ('day', 'x', 'y'))
+	snowVol = f.createVariable('snow_volume', 'f4', ('day', 'x', 'y'))
+	density = f.createVariable('snow_density', 'f4', ('day', 'x', 'y'))
+	precip = f.createVariable('precipitation', 'f4', ('day', 'x', 'y'))
+	iceConc = f.createVariable('ice_concentration', 'f4', ('day', 'x', 'y'))
+	winds = f.createVariable('wind_speed', 'f4', ('day', 'x', 'y'))
+	#temps = f.createVariable('airTemp2m', 'f4', ('day', 'x', 'y'))
+	day = f.createVariable('day', 'i4', ('day'))
+
+	day.units = 'yyyymmdd'
+	day.long_name='calendar date'
+
+	longitude.units = 'degrees East'
+	longitude.long_name='longitude'
+
+	xgrid.units = 'meters'
+	xgrid.long_name='projection grid x values'
+	xgrid.description = "center values of projection grid in x direction" 
+
+	ygrid.units = 'meters'
+	ygrid.long_name='projection grid y values'
+	ygrid.description = "center values of projection grid in y direction" 
+
+	latitude.units = 'degrees North'
+	latitude.long_name='latitude'
+
+	snowVol.description = 'Daily snow volume per unit grid cell'
+	snowVol.units = 'meters'
+	snowVol.long_name = 'snow volume'
+
+	snowDepth.description = 'Daily snow depth (effective over the ice fraction)'
+	snowDepth.units = 'meters'
+	snowDepth.long_name = 'snow depth'
+
+	density.description = 'Bulk snow density'
+	density.units = 'kilograms per meters cubed'
+	density.long_name = 'snow density'
+
+	precip.description = 'Precipitation, generally the explicit snowfall component of total precipitaiton provided by the chosen reanalysis'
+	precip.units = 'kilograms of snow per meters squared'
+	precip.long_name = 'Snowfall'
+
+	iceConc.description = 'Sea ice concentration derived from passive mcirowave concentration'
+	iceConc.units = 'unitless (between 0 and 1)'
+	iceConc.long_name = 'ice concentration'
+
+	winds.description = 'Wind speed magnitude, calculated as the root mean square of the u/v wind vectors'
+	winds.units = 'meters'
+	winds.long_name = 'wind speed'
+	
+	if ice_conc_mask>0:
+		snowVolT[np.where(iceConcT<ice_conc_mask)]=np.nan 
+		snowDepthT[np.where(iceConcT<ice_conc_mask)]=np.nan 
+		densityT[np.where(iceConcT<ice_conc_mask)]=np.nan 
+
+		# Also mask ice concentration less than 0.15 due to knwon uncertainties with the passive microwave data
+		iceConcT[np.where(iceConcT<0.15)]=np.nan 
+
+
+	longitude[:] = np.around(lons, decimals=4) #The "[:]" at the end of the variable instance is necessary
+	latitude[:] = np.around(lats, decimals=4)
+	xgrid[:] = np.around(xpts, decimals=4) #The "[:]" at the end of the variable instance is necessary
+	ygrid[:] = np.around(ypts, decimals=4)
+
+	snowVol[:] = np.around(snowVolT, decimals=4)
+	snowDepth[:] = np.around(snowDepthT, decimals=4)
+	density[:] = np.around(densityT, decimals=4)
+	iceConc[:] = np.around(iceConcT, decimals=4)
+	precip[:] = np.around(precipT, decimals=4)
+	winds[:] = np.around(windsT, decimals=4)
+	#temps[:] = np.around(tempT, decimals=4)
+	day[:]=datesT
+
+	today = datetime.datetime.today()
+
+	#Add global attributes
+	
+	f.reference = "github.com/akpetty/NESOSIM"
+	f.contact = "alek.a.petty@nasa.gov"
+	f.description = "Daily snow on sea ice (depth and density) from the NASA Eulerian Snow on Sea Ice Model (NESOSIM) version 1.1"
+	f.history = "Created " + today.strftime("%d/%m/%y")
+	f.data_range = "Date range: "+str(datesT[0])+'-'+str(datesT[-1])
+
+	f.close()
+
+def plot_budgets_cartopy(lonG, latG, precipDaysT, windDaysT, snowDepthsT, snowOceanT, snowAccT, snowDivT, \
+	snowAdvT, snowLeadT, snowAtmT, snowWindPackT, snowWindPackLossT, snowWindPackGainT, densityT, dateStr, figpath, totalOutStr='test'):
+	""" Plot snow budget terms """
+
+	plot_gridded_cartopy(lonG, latG, precipDaysT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/precip'+totalOutStr, units_lab='kg/m2', varStr='Snowfall', minval=0., maxval=1, cmap_1=cm.cubehelix_r)
+	plot_gridded_cartopy(lonG, latG, windDaysT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/wind'+totalOutStr, units_lab='m/s', varStr='Wind speed', minval=0., maxval=10, cmap_1=cm.cubehelix_r)
+	plot_gridded_cartopy(lonG, latG, snowDepthsT[0], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowNew_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	plot_gridded_cartopy(lonG, latG, snowDepthsT[1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowOld_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	plot_gridded_cartopy(lonG, latG, snowDepthsT[0]+snowDepthsT[1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowTot_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+	
+	plot_gridded_cartopy(lonG, latG, snowDivT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDiv_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	plot_gridded_cartopy(lonG, latG, snowAdvT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowAdv_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	plot_gridded_cartopy(lonG, latG, snowDivT+snowAdvT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDyn_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	plot_gridded_cartopy(lonG, latG, snowLeadT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowLeadLoss_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	plot_gridded_cartopy(lonG, latG, snowAtmT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowAtmLoss_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+	plot_gridded_cartopy(lonG, latG, snowWindPackT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowWindPack_'+totalOutStr, units_lab='m', varStr='Snow depth', minval=-0.3, maxval=0.3, cmap_1=cm.RdBu)
+
+	plot_gridded_cartopy(lonG, latG, densityT, proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'/snowDensity_'+totalOutStr, units_lab='kg/m3', varStr='Snow density', minval=220, maxval=340, cmap_1=cm.viridis)
+
 
 def bin_oib(xptsOIB, yptsOIB, xptsG, yptsG, oibVar):
 	""" Bin data using numpy histogram"""
@@ -77,45 +253,7 @@ def getDays(year1, month1, day1, year2, month2, day2):
 	return startDayT, numDaysT, numDaysYear1, date1Str+'-'+date2Str
 
 
-
-def int_smooth_drifts(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=0.75):
-	
-	nx=xptsG.shape[0]
-	ny=xptsG.shape[1]
-
-	driftFG=ma.masked_all((2, nx, ny))
-
-	# Bodge way of making a mask
-	badData = np.zeros((xptsF.shape))
-	# & (latsF>88)) if we want to mask the pole hole
-	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
-
-	driftFx = driftFmon[0][np.where(badData<0.5)]
-	driftFy = driftFmon[1][np.where(badData<0.5)]
-	xptsFM = xptsF[np.where(badData<0.5)]
-
-	yptsFM = yptsF[np.where(badData<0.5)]
-
-	driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
-	driftFGy = griddata((xptsFM, yptsFM), driftFy, (xptsG, yptsG), method='linear')
-
-	# COPY TO GENERATE AN ARRAY OF ZEROS INSTEAD OF NANS FOR FILTERING.
-	driftFGxN=np.copy(driftFGx)
-	driftFGyN=np.copy(driftFGy)
-
-	driftFGx[np.isnan(driftFGx)]=0
-	driftFGy[np.isnan(driftFGy)]=0
-
-	driftFGxg = gaussian_filter(driftFGx, sigma=sigma_factor)
-	driftFGyg = gaussian_filter(driftFGy, sigma=sigma_factor)
-
-	driftFG[0]=ma.masked_where(np.isnan(driftFGxN), driftFGxg)
-	driftFG[1]=ma.masked_where(np.isnan(driftFGyN), driftFGyg)
-	
-
-	return driftFG
-
-def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=1, truncate=1):
+def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=1, x_size_val=3, truncate=1):
 	# use info from https://stackoverflow.com/questions/18697532/gaussian-filtering-a-image-with-nan-in-python
 	# to better rapply to nan regions
 	nx=xptsG.shape[0]
@@ -131,7 +269,6 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 	driftFx = driftFmon[0][np.where(badData<0.5)]
 	driftFy = driftFmon[1][np.where(badData<0.5)]
 	xptsFM = xptsF[np.where(badData<0.5)]
-
 	yptsFM = yptsF[np.where(badData<0.5)]
 
 	driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
@@ -140,7 +277,7 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 	#driftFGx[np.isnan(driftFGx)]=0
 	#driftFGy[np.isnan(driftFGy)]=0
 
-	kernel = Gaussian2DKernel(x_stddev=sigma_factor, y_stddev=sigma_factor)
+	kernel = Gaussian2DKernel(x_stddev=sigma_factor, y_stddev=sigma_factor,x_size=x_size_val, y_size=x_size_val)
 
 	driftFGxg = convolve(driftFGx, kernel)
 	driftFGyg = convolve(driftFGy, kernel)
@@ -164,7 +301,7 @@ def getOIBbudgetDays(datesOIBT, yearT, monthT, dayT):
 def getOSISAFDrift(m, fileT):
 	"""
 	Calculate the OSI-SAF vectors on our map projection
-	With help from Thomas Lavergne!
+	With help from Thomas Lavergne.
 
 	"""
 
@@ -197,6 +334,100 @@ def getOSISAFDrift(m, fileT):
 
 	return xt, yt, mag, lat, lon, xpts, ypts
 
+import cartopy.crs as ccrs
+
+
+class P3413(ccrs.Projection):
+	# 3413 projection in CRS format
+    
+    def __init__(self):
+
+        # see: http://www.spatialreference.org/ref/epsg/3408/
+        proj4_params = {'proj': 'stere',
+            'lat_0': 90.,
+            'lon_0': -45,
+            'x_0': 0,
+            'y_0': 0,
+            'units': 'm',
+            'no_defs': ''}
+
+        super(P3413, self).__init__(proj4_params)
+
+    @property
+    def boundary(self):
+        coords = ((self.x_limits[0], self.y_limits[0]),(self.x_limits[1], self.y_limits[0]),
+                  (self.x_limits[1], self.y_limits[1]),(self.x_limits[0], self.y_limits[1]),
+                  (self.x_limits[0], self.y_limits[0]))
+
+        return ccrs.sgeom.Polygon(coords).exterior
+
+    @property
+    def threshold(self):
+        return 1e5
+
+    @property
+    def x_limits(self):
+        return (-2353926.81, 2345724.36)
+        #return (-9000000, 9000000)
+
+    @property
+    def y_limits(self):
+        return (-382558.89, 383896.60)
+        #return (-9000000, 9000000)
+
+    def describe(self):
+        for k, v in vars(self).items():
+            print (f'{k}: {v}')
+
+
+class EASE_North(ccrs.Projection):
+	# Original EASE North projection class
+    '''Projection class for NSIDC EASE grid north'''
+    
+    def __init__(self):
+
+        # see: http://www.spatialreference.org/ref/epsg/3408/
+        proj4_params = {'proj': 'laea',
+            'lat_0': 90.,
+            'lon_0': 0,
+            'x_0': 0,
+            'y_0': 0,
+            'a': 6371228,
+            'b': 6371228,
+            'units': 'm',
+            'no_defs': ''}
+
+        super(EASE_North, self).__init__(proj4_params)
+
+    @property
+    def boundary(self):
+        coords = ((self.x_limits[0], self.y_limits[0]),(self.x_limits[1], self.y_limits[0]),
+                  (self.x_limits[1], self.y_limits[1]),(self.x_limits[0], self.y_limits[1]),
+                  (self.x_limits[0], self.y_limits[0]))
+
+        return ccrs.sgeom.Polygon(coords).exterior
+
+    @property
+    def threshold(self):
+        return 1e5
+
+    @property
+    def x_limits(self):
+        return (-9030575.88125, 9030575.88125)
+        #return (-9000000, 9000000)
+
+    @property
+    def y_limits(self):
+        return (-9030575.88125, 9030575.88125)
+        #return (-9000000, 9000000)
+
+    def describe(self):
+        for k, v in vars(self).items():
+            print (f'{k}: {v}')
+
+            
+
+
 def get_osisaf_drifts_proj(proj, fileT):
 	"""
 	Calculate the OSI-SAF vectors on our given map projection
@@ -215,6 +446,9 @@ def get_osisaf_drifts_proj(proj, fileT):
 	lat1 = (f.variables['lat1'][0])
 	f.close()
 
+	lond = lon1-lon
+	latd = lat1-lat
+	
 	# transform to map project coordinates (basemap's axes, assume they have unit of m)
 	x0, y0=proj(lon, lat)
 	x1, y1=proj(lon1, lat1)
@@ -228,10 +462,14 @@ def get_osisaf_drifts_proj(proj, fileT):
 
 	# TL: no need to rotate : the xt, and yt are already in the basemap's projection
 
-	# compute magnitude (speed scalar)
-	mag=np.sqrt((xt**2)+(yt**2))
+	#mag_scale = np.hypot(u_map, v_map) / np.hypot(u, v)
 
-	return xt, yt, mag, lat, lon, xpts, ypts
+	# compute magnitude (speed scalar)
+	#mag_scale = np.hypot(xt, yt) / np.hypot(lond/(60*60*24*2.), latd/(60*60*24*2.))
+	#xt=xt/mag_scale
+	#yt=yt/mag_scale
+
+	return xt, yt, lat, lon, xpts, ypts
 
 def getFowlerdriftMonthV3(rawdatapath, year, month, m, mean=0):
 
@@ -685,6 +923,30 @@ def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_lon
 	plt.savefig(out+'.png', dpi=200)
 	plt.close(fig)
 
+def get_uv_from_xy(xdrift, ydrift, lon):
+	# convert the x/y drift vectors to zonal/meridional vectors
+	alpha = lon*np.pi/180.
+	uvelT = ydrift*np.sin(alpha) + xdrift*np.cos(alpha)
+	vvelT = ydrift*np.cos(alpha) - xdrift*np.sin(alpha) 
+
+	return uvelT, vvelT
+
+def get_nsidc_driftv4(nsidc_raw_path, year, day, time_freq):
+
+	fileT=nsidc_raw_path+time_freq+'/icemotion_'+time_freq+'_nh_25km_'+str(year)+'0101_'+str(year)+'1231_v4.1.nc'
+	nsidc_drifts_daily= xr.open_dataset(fileT)
+
+	# Read in day, convert cm per second to meters per second
+	xeasedrift = nsidc_drifts_daily.u[day].values*0.01
+	yeasedrift = nsidc_drifts_daily.v[day].values*0.01
+
+	lont=nsidc_drifts_daily.longitude.values
+	latt=nsidc_drifts_daily.latitude.values
+
+	#uvelT, vvelT = get_uv_from_xy(xeasedrift, yeasedrift, lont)
+	
+	return xeasedrift, yeasedrift, lont, latt
+
 def plot_drift_cartopy(lons, lats, xpts, ypts, var_x, var_y, var_mag, proj=ccrs.NorthPolarStereo(central_longitude=-45), shading='flat', out='./figure', units_lab='units', units_vec='', varStr='',
  minval=1., maxval=1., date_string='year', month_string='months', extra='', res=2, scale_vec=1, vector_val=1, cbar_type='both', cmap_1=plt.cm.viridis, norm=0):
 
@@ -763,6 +1025,8 @@ def plot_drift_cartopy_uv(lons, lats, var_u, var_v, var_mag, proj=ccrs.NorthPola
 	plt.close(fig)
 
 def get_psnlatslons(data_path):
+	""" Get NSIDC 25 km lat/lon grids"""
+
 	mask_latf = open(data_path+'/OTHER/psn25lats_v3.dat', 'rb')
 	mask_lonf = open(data_path+'/OTHER/psn25lons_v3.dat', 'rb')
 	lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
@@ -770,10 +1034,9 @@ def get_psnlatslons(data_path):
 
 	return lats_mask, lons_mask
 
-
-
 def get_pmask(year, month):
 	#remove half a degree as gridding around the pole hole edge
+	
 	if (year<1987):
 		pmask=84.4
 	elif((year==1987)&(month<=6)):
@@ -786,33 +1049,6 @@ def get_pmask(year, month):
 		pmask=89.2
 	
 	return pmask
-
-def get_region_maskAOsnow(datapath, mplot, xypts_return=0, latN=60):
-	header = 300
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/region_n.msk'
-	
-	
-	fd = open(file_mask, 'rb')
-	region_mask = np.fromfile(file=fd, dtype=datatype)
-	region_mask = np.reshape(region_mask[header:], [448, 304])
-
-	mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-	mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-	lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-	lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-	region_maskAO=np.zeros((lons_mask.shape))
-	mask = np.where((region_mask<11) & (lats_mask>latN))
-	region_maskAO[mask]=1
-
-	if (xypts_return==1):
-
-		xpts, ypts = mplot(lons_mask, lats_mask)
-
-		return region_maskAO, xpts, ypts
-	else:
-		return region_maskAO
 
 def getGrid(outPath, dx):
 	"""Get model grid data"""
@@ -865,47 +1101,6 @@ def getSTOSIWIGday(m, dayFiles, delim, mask_hs=1):
 
 	return xpts_total, ypts_total, lats_total, lons_total, snow_thickness_total
 
-
-def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
-	"""  Get all snow radar data from all days within a campaign year.
-
-	 Calls getSTOSIWIGday
-	""" 
-
-	if (snowTypeT=='GSFC'):
-		delim='\t'
-		endStr='txt'
-	elif (snowTypeT=='JPL'):
-		delim=','
-		endStr='JPL'
-	elif (snowTypeT=='SRLD'):
-		delim=','
-		endStr='srld'
-
-	print(snowTypeT, yearT)
-	folders = glob(dataPath+'/ICEBRIDGE/STOSIWIG/'+snowTypeT+'/'+str(yearT)+'*')
-	print ('folders', folders)
-	datesY=[folder[-8:] for folder in folders]
-
-
-	latsY=[] 
-	lonsY=[]
-	xptsY=[]
-	yptsY=[]
-	snowY=[]
-
-	for folder in folders:
-		dayFilesT=glob(folder+'/*.'+endStr)
-		#for day in folder 
-
-		xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(m, dayFilesT, delim)
-		xptsY.append(xptsD)
-		yptsY.append(yptsD)
-		latsY.append(latsD)
-		lonsY.append(lonsD)
-		snowY.append(snowD)
-
-	return xptsY, yptsY, latsY, lonsY, snowY, datesY
 
 def getSTOSIWIGyear_proj(proj, dataPath, snowTypeT, yearT):
 	"""  Get all snow radar data from all days within a campaign year.
@@ -965,126 +1160,11 @@ def getWarren(lonT, latT, monthT):
 	Hsw = H_0[monthT] + a[monthT]*x + b[monthT]*y + c[monthT]*x*y + (d[monthT]*x*x) + (e[monthT]*y*y)
 	#Hsw=Hsw/100.
 
-
 	#Hsw[where(region_maskG<9.6)]=np.nan
 	#Hsw[where(region_maskG==14)]=np.nan
 	#Hsw[where(region_maskG>15.5)]=np.nan
 
 	return np.array(Hsw)
-
-def bindataN(x, y, z, xG, yG, binsize=0.01, retbin=True, retloc=True):
-	"""
-	Place unevenly spaced 2D data on a grid by 2D binning (nearest
-	neighbor interpolation).
-
-	Parameters
-	----------
-	x : ndarray (1D)
-		The idependent data x-axis of the grid.
-	y : ndarray (1D)
-		The idependent data y-axis of the grid.
-	z : ndarray (1D)
-		The dependent data in the form z = f(x,y).
-	binsize : scalar, optional
-		The full width and height of each bin on the grid.  If each
-		bin is a cube, then this is the x and y dimension.  This is
-		the step in both directions, x and y. Defaults to 0.01.
-	retbin : boolean, optional
-		Function returns `bins` variable (see below for description)
-		if set to True.  Defaults to True.
-	retloc : boolean, optional
-		Function returns `wherebins` variable (see below for description)
-		if set to True.  Defaults to True.
-
-	Returns
-	-------
-	grid : ndarray (2D)
-		The evenly gridded data.  The value of each cell is the median
-		value of the contents of the bin.
-	bins : ndarray (2D)
-		A grid the same shape as `grid`, except the value of each cell
-		is the number of points in that bin.  Returns only if
-		`retbin` is set to True.
-	wherebin : list (2D)
-		A 2D list the same shape as `grid` and `bins` where each cell
-		contains the indicies of `z` which contain the values stored
-		in the particular bin.
-
-	Revisions
-	---------
-	2010-07-11  ccampo  Initial version
-	"""
-	# get extrema values.
-	xmin, xmax = xG.min(), xG.max()
-	ymin, ymax = yG.min(), yG.max()
-
-	# make coordinate arrays.
-	xi      = xG[0]
-	yi      = yG[:, 0] #np.arange(ymin, ymax+binsize, binsize)
-	xi, yi = np.meshgrid(xi,yi)
-
-	# make the grid.
-	grid           = np.zeros(xi.shape, dtype=x.dtype)
-	nrow, ncol = grid.shape
-	if retbin: bins = np.copy(grid)
-
-	# create list in same shape as grid to store indices
-	if retloc:
-		wherebin = np.copy(grid)
-		wherebin = wherebin.tolist()
-
-	# fill in the grid.
-	for row in range(nrow):
-		for col in range(ncol):
-			xc = xi[row, col]    # x coordinate.
-			yc = yi[row, col]    # y coordinate.
-
-			# find the position that xc and yc correspond to.
-			posx = np.abs(x - xc)
-			posy = np.abs(y - yc)
-			ibin = np.logical_and(posx < binsize/2., posy < binsize/2.)
-			ind  = np.where(ibin == True)[0]
-
-			# fill the bin.
-			bin = z[ibin]
-			if retloc: wherebin[row][col] = ind
-			if retbin: bins[row, col] = bin.size
-			if bin.size != 0:
-				binval         = np.mean(bin)
-				grid[row, col] = binval
-			else:
-				grid[row, col] = np.nan   # fill empty bins with nans.
-
-	# return the grid
-	if retbin:
-		if retloc:
-			return grid, bins, wherebin
-		else:
-			return grid, bins
-	else:
-		if retloc:
-			return grid, wherebin
-		else:
-			return grid				
-
-def correlateVars(var1, var2):
-#correlate two variables
-	trend, intercept, r_a, prob, stderr = stats.linregress(var1, var2)
-	sig = 100.*(1.-prob)
-	return trend, sig, r_a, intercept 
-
-def get_nesosim_day(outPath, end_year, day, converttocm=1):
-
-	files=glob(outPath+'*'+str(end_year)+'.nc')
-	data=xr.open_dataset(files[0]) 
-	snow_depth=data['snowDepth'][day].values
-	lat=data['latitude'][:].values
-	lon=data['longitude'][:].values
-
-	if (converttocm==1):
-		snow_depth=snow_depth*100.
-
-	return snow_depth, lat, lon
 
 
 def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, region='', converttocm=0):
@@ -1149,34 +1229,8 @@ def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, re
 		print ('1 var')
 		return snowDataT
 
-def get_region_mask(datapath, mplot, xypts_return=0):
-	header = 300
-	datatype='uint8'
-	file_mask = datapath+'/OTHER/region_n.msk'
-
-	#8 - Arctic Ocean
-	#9 - Canadian Archipelago
-	#10 - Gulf of St Lawrence
-	#11 - Land
-
-	fd = open(file_mask, 'rb')
-	region_mask = np.fromfile(file=fd, dtype=datatype)
-	region_mask = np.reshape(region_mask[header:], [448, 304])
-
-	if (xypts_return==1):
-		mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
-		mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
-		lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
-		lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
-
-		xpts, ypts = mplot(lons_mask, lats_mask)
-
-		return region_mask, xpts, ypts
-	else:
-		return region_mask
-
 def densityClim(dayT, dataPath):
-	"""Assign initial snow density based on daily climatology"""
+	"""Assign initial snow density based on daily Warren climatology"""
 
 	densityClim=pd.read_csv(dataPath+'/Daily_Density.csv', header=0, names=['Day', 'Density'])
 	#find density of given day and multiply by 1000 to express in Kg
@@ -1185,13 +1239,20 @@ def densityClim(dayT, dataPath):
 	return densityClimDay
 
 def get_region_mask_pyproj(anc_data_path, proj, xypts_return=0):
-	""" Read in NSIDC Arctic Ocean mask and transofrm to given projection
+	""" Read in NSIDC Arctic Ocean mask and transform to prescribed projection
 	"""
 
 	header = 300
 	datatype='uint8'
 	file_mask = anc_data_path+'region_n.msk'
 
+	#1 - Non regional ocean
+	#2 - Sea of Okhotsk and Japan
+	#3 - Bering 
+	#4 - Hudson Bay
+	#5 - Baffin Bay/Davis Strait/Labrador Sea
+	#6 - Greenland
+	#7 - Kara/Barents
 	#8 - Arctic Ocean
 	#9 - Canadian Archipelago
 	#10 - Gulf of St Lawrence

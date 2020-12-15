@@ -1,19 +1,20 @@
 """ config.py
 	
 	Configuration file for the main NESOSIM function
+
+	To do: add model constants/parameter settings here
 	
 """
 
-#----- File paths -------------
 
-osisaf_raw_path = '/Volumes/PETTY_E/DATA/ICE_DRIFT/OSISAF-MERGED/'
-cdr_raw_path = '/Volumes/PETTY_E/DATA/ICE_CONC/CDR/'
-reanalysis_raw_path = '/Volumes/PETTY_E/DATA/REANALYSES/'
-forcing_save_path = '/Volumes/PETTY_E/NESOSIMv11/Forcings/'
-model_save_path = '/Volumes/PETTY_E/NESOSIMv11/Output/'
-figure_path = '/Volumes/PETTY_E/NESOSIMv11/Figures/'
-oib_data_path='/users/aapetty/Data/IceBridge/'
-nsidc_raw_path = '/Volumes/PETTY_E/DATA/ICE_DRIFT/NSIDC/'
+#----- File paths (replace with links to the raw and gridded forcings) -------------
+
+nsidc_raw_path = ''
+osisaf_raw_path = ''
+cdr_raw_path = ''
+reanalysis_raw_path = ''
+forcing_save_path = ''
+model_save_path = ''
+figure_path = ''
+oib_data_path=''
 anc_data_path='../../anc_data/'
-
-#----- Add constants -------------

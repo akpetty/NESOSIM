@@ -13,7 +13,7 @@
 
 	Update history:
 		10/01/2018: Version 1
-		10/01/2020: Version 2 - new domain and using cartopy/pyproj for gridding
+		05/01/2020: Version 2 - new domain and using cartopy/pyproj for gridding
 """
 
 import numpy as np
@@ -33,7 +33,7 @@ from config import forcing_save_path
 from config import figure_path
 
 
-def main(year, startMonth=0, endMonth=11, extraStr='v11_n', dx=100000, data_path=osisaf_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceDrift/OSISAF/', anc_data_path='../../AncData/'):
+def main(year, startMonth=0, endMonth=11, extraStr='v11_t', dx=100000, data_path=osisaf_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceDrift/OSISAF/', anc_data_path='../../AncData/'):
 
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -104,7 +104,7 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11_n', dx=100000, data_path
 			print(fileT)
 
 			if (np.size(glob(fileT))>0):
-				ux, vy, mag, latsO, lonsO, xptsO, yptsO = cF.get_osisaf_drifts_proj(proj, fileT)
+				ux, vy, latsO, lonsO, xptsO, yptsO = cF.get_osisaf_drifts_proj(proj, fileT)
 
 				#Set masked values back to nan for gridding purposes
 				ux[np.where(ma.getmask(ux))]=np.nan
@@ -113,15 +113,8 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11_n', dx=100000, data_path
 
 				drift_xyG = cF.int_smooth_drifts_v2(xptsG, yptsG, xptsO, yptsO, latsO, drift_day_xy, sigma_factor=1)
 
-			else:
-				# just set the daily drift to a masked array (no drifts available)
-				drift_xyG=ma.masked_all((2,xptsG.shape[0], xptsG.shape[1]))
 			#drift_day_xy[1] = vy 
 			print(drift_xyG)	
-			# rotate cartesian vectors to zonal/meridional for cartopy plotting only
-			alpha = lonG*np.pi/180.
-			drift_uG = drift_xyG[0]*np.sin(alpha) + drift_xyG[1]*np.cos(alpha)
-			drift_vG = drift_xyG[0]*np.cos(alpha) - drift_xyG[1]*np.sin(alpha) 
 
 			cF.plot_drift_cartopy(lonG , latG , xptsG, yptsG, drift_xyG[0], drift_xyG[1], np.sqrt(drift_xyG[0]**2+drift_xyG[1]**2) , out=fig_path+str(year)+'_d'+dayStr+dxStr+extraStr, units_lab='m/s', units_vec=r'm s$^{-1}$',
 				minval=0, maxval=0.5, vector_val=0.1, date_string=str(yearT)+mstr1+xstr1+'-'+str(year)+mstr2+xstr2, month_string='', varStr='OSI SAF ice drift ',cbar_type='max', cmap_1=plt.cm.viridis)
@@ -131,7 +124,7 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11_n', dx=100000, data_path
 #-- run main program
 if __name__ == '__main__':
 	
-	for year in range(2010, 2020+1, 1):
+	for year in range(2010, 2010+1, 1):
 		print(year)
 		main(year)
 	

@@ -24,8 +24,8 @@ from config import forcing_save_path, model_save_path, figure_path
 import NESOSIM
 
 
-yearS=2010
-yearE=2015
+yearS=2009
+yearE=2019
 
 monthS = 8 # August = 7, September = 8
 monthE = 3 # 3 = April
@@ -40,11 +40,11 @@ for y in range(yearS, yearE+1):
 		outPathT=model_save_path, 
 		forcingPathT=forcing_save_path, 
 		figPathT=figure_path+'Model/',
-		precipVar='ERA5', windVar='ERAI', driftVar='OSISAF', concVar='CDR', 
-		icVar='ERAI', densityTypeT='variable', extraStr='v11', outStr='oct15', IC=2, 
-		windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=2.9e-7,
-		dynamicsInc=1, leadlossInc=0, windpackInc=1, atmlossInc=1, plotBudgets=1, plotdaily=0,
-		scaleCS=False, dx=100000)
+		precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', 
+		icVar='ERA5', densityTypeT='variable', extraStr='v11', outStr='oct28', IC=2, 
+		windPackFactorT=5.8e-7, windPackThreshT=5, leadLossFactorT=1.45e-7,
+		dynamicsInc=1, leadlossInc=1, windpackInc=1, atmlossInc=1, plotBudgets=1, plotdaily=0,
+		scaleCS=True, dx=100000)
 
 
 

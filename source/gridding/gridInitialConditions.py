@@ -53,7 +53,7 @@ varStr='t2m'
 extraStr='v11'
 temp_path=forcing_save_path+dxStr+'/Temp/ERA5/'
 iceconc_path=forcing_save_path+dxStr+'/IceConc/CDR/'
-ic_path=forcing_save_path+dxStr+'/InitialConditions/'
+ic_path=forcing_save_path+dxStr+'/InitialConditions/'+reanalysis+'/'
 fig_path=figure_path+'Temp/ERA5/'
 
 t2mdurGAll=[]
@@ -68,7 +68,7 @@ print(t2mdurGclim.shape)
 w99=cF.getWarren(lonG, latG, 7)
 
 
-for yearT in range(2018, 2019+1, 1):
+for yearT in range(2009, 2019+1, 1):
 	if (yearT==1987):
  		continue
 

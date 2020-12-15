@@ -1,4 +1,100 @@
 
+def correlateVars(var1, var2):
+#correlate two variables
+	trend, intercept, r_a, prob, stderr = stats.linregress(var1, var2)
+	sig = 100.*(1.-prob)
+	return trend, sig, r_a, intercept 
+
+def get_nesosim_day(outPath, end_year, day, converttocm=1):
+
+	files=glob(outPath+'*'+str(end_year)+'.nc')
+	data=xr.open_dataset(files[0]) 
+	snow_depth=data['snowDepth'][day].values
+	lat=data['latitude'][:].values
+	lon=data['longitude'][:].values
+
+	if (converttocm==1):
+		snow_depth=snow_depth*100.
+
+	return snow_depth, lat, lon
+
+def int_smooth_drifts(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=0.75):
+	
+	nx=xptsG.shape[0]
+	ny=xptsG.shape[1]
+
+	driftFG=ma.masked_all((2, nx, ny))
+
+	# Bodge way of making a mask
+	badData = np.zeros((xptsF.shape))
+	# & (latsF>88)) if we want to mask the pole hole
+	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
+
+	driftFx = driftFmon[0][np.where(badData<0.5)]
+	driftFy = driftFmon[1][np.where(badData<0.5)]
+	xptsFM = xptsF[np.where(badData<0.5)]
+
+	yptsFM = yptsF[np.where(badData<0.5)]
+
+	driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
+	driftFGy = griddata((xptsFM, yptsFM), driftFy, (xptsG, yptsG), method='linear')
+
+	# COPY TO GENERATE AN ARRAY OF ZEROS INSTEAD OF NANS FOR FILTERING.
+	driftFGxN=np.copy(driftFGx)
+	driftFGyN=np.copy(driftFGy)
+
+	driftFGx[np.isnan(driftFGx)]=0
+	driftFGy[np.isnan(driftFGy)]=0
+
+	driftFGxg = gaussian_filter(driftFGx, sigma=sigma_factor)
+	driftFGyg = gaussian_filter(driftFGy, sigma=sigma_factor)
+
+	driftFG[0]=ma.masked_where(np.isnan(driftFGxN), driftFGxg)
+	driftFG[1]=ma.masked_where(np.isnan(driftFGyN), driftFGyg)
+	
+
+	return driftFG
+
+def getSTOSIWIGyear(m, dataPath, snowTypeT, yearT):
+	"""  Get all snow radar data from all days within a campaign year.
+
+	 Calls getSTOSIWIGday
+	""" 
+
+	if (snowTypeT=='GSFC'):
+		delim='\t'
+		endStr='txt'
+	elif (snowTypeT=='JPL'):
+		delim=','
+		endStr='JPL'
+	elif (snowTypeT=='SRLD'):
+		delim=','
+		endStr='srld'
+
+	print(snowTypeT, yearT)
+	folders = glob(dataPath+'/ICEBRIDGE/STOSIWIG/'+snowTypeT+'/'+str(yearT)+'*')
+	print ('folders', folders)
+	datesY=[folder[-8:] for folder in folders]
+
+
+	latsY=[] 
+	lonsY=[]
+	xptsY=[]
+	yptsY=[]
+	snowY=[]
+
+	for folder in folders:
+		dayFilesT=glob(folder+'/*.'+endStr)
+		#for day in folder 
+
+		xptsD, yptsD, latsD, lonsD, snowD = getSTOSIWIGday(m, dayFilesT, delim)
+		xptsY.append(xptsD)
+		yptsY.append(yptsD)
+		latsY.append(latsD)
+		lonsY.append(lonsD)
+		snowY.append(snowD)
+
+	return xptsY, yptsY, latsY, lonsY, snowY, datesY
 
 
 def get_region_maskNAsnow(datapath, mplot, xypts_return=0):
@@ -27,6 +123,32 @@ def get_region_maskNAsnow(datapath, mplot, xypts_return=0):
 		return region_maskCA, xpts, ypts
 	else:
 		return region_maskCA
+
+def get_region_mask(datapath, mplot, xypts_return=0):
+	header = 300
+	datatype='uint8'
+	file_mask = datapath+'/OTHER/region_n.msk'
+
+	#8 - Arctic Ocean
+	#9 - Canadian Archipelago
+	#10 - Gulf of St Lawrence
+	#11 - Land
+
+	fd = open(file_mask, 'rb')
+	region_mask = np.fromfile(file=fd, dtype=datatype)
+	region_mask = np.reshape(region_mask[header:], [448, 304])
+
+	if (xypts_return==1):
+		mask_latf = open(datapath+'/OTHER/psn25lats_v3.dat', 'rb')
+		mask_lonf = open(datapath+'/OTHER/psn25lons_v3.dat', 'rb')
+		lats_mask = np.reshape(np.fromfile(file=mask_latf, dtype='<i4')/100000., [448, 304])
+		lons_mask = np.reshape(np.fromfile(file=mask_lonf, dtype='<i4')/100000., [448, 304])
+
+		xpts, ypts = mplot(lons_mask, lats_mask)
+
+		return region_mask, xpts, ypts
+	else:
+		return region_mask
 
 def get_day_concSN_daily(datapath, year, month, day, alg=0, pole='A', vStr='v03', mask=1, maxConc=0, lowerConc=0, monthMean=0):
 	if (alg==0):

@@ -38,7 +38,7 @@ from config import forcing_save_path
 from config import figure_path
 
 
-def main(year, start_month=8, end_month=11, extraStr='v11_n', dx=100000, data_path=cdr_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceConc/CDR/', anc_data_path='../../anc_data/'):
+def main(year, start_month=3, end_month=3, extraStr='v11', dx=100000, data_path=cdr_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceConc/CDR/', anc_data_path='../../anc_data/'):
 		
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -112,7 +112,7 @@ def main(year, start_month=8, end_month=11, extraStr='v11_n', dx=100000, data_pa
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(2010, 2010+1, 1):
+	for y in range(2020, 2020+1, 1):
 		print(y)
 		main(y)
 

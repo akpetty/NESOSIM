@@ -1,4 +1,4 @@
-""" run.py
+""" run_oneseason.py
 	
 	Run script for the NESOSIM model included in NESOSIM.py 
 	Model written by Alek Petty (03/01/2018)
