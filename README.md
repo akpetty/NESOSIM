@@ -89,11 +89,11 @@ Descriptions should be included at the top of each Python script.
 
 ### Forcing Data
 
-NESOSIM (v1.1) is forced with daily (100 km) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
+NESOSIM (v1.1) is forced with daily (100 km default but higher resolution possible) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
 
 The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD) but have ben updated to an extended Arctic domain (along with a few other tweaks) in this v1.1 configuration.
 
-The following file includes gridded (100 km) test forcing data for September 2018 to April 2019 including: daily ERA-5 snowfall and winds, CDR ice concentration, NSIDCv4 sea ice drift vectors. Unzip and place in the following directory for testing purposes:
+The test_forcings.zip file includes gridded (100 km) test forcing data for September 2018 to April 2019 including: daily ERA-5 snowfall and winds, CDR ice concentration, NSIDCv4 sea ice drift vectors. Unzip and it should automatically create a test forcing directory for testing purposes:
 
 ```
 test_forcings/
@@ -111,7 +111,6 @@ anc_data/
 NESOSIM outputs NetCDF files to the location specified in the config.py file.
 
 The v1.0 NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
-
 
 Please contact me if you any any questions or thoughts on anything included here (alek.a.petty@nasa.gov) or generate a new GitHub issue if you want to be fancy about it. 
 
