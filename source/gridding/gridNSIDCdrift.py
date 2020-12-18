@@ -82,7 +82,7 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=n
 			cF.plot_drift_cartopy(lonG , latG , xptsG, yptsG, drift_xyG[0], drift_xyG[1], np.sqrt(drift_xyG[0]**2+drift_xyG[1]**2) , out=fig_path+str(year)+'_d'+dayStr+dxStr+extraStr, units_lab='m/s', units_vec=r'm s$^{-1}$',
 				minval=0, maxval=0.5, vector_val=0.1, date_string=str(year)+'_d'+dayStr, month_string='', varStr='NSIDCv4 ice drift ',cbar_type='max', cmap_1=plt.cm.viridis)
 				
-			drift_xyG.dump(out_path+'/'+dxStr+'/IceDrift/NSIDCv4/'+str(year)+'/NSIDC_driftG'+dxStr+'-'+str(year)+'_d'+dayStr+extraStr)
+			drift_xyG.dump(out_path+'/'+dxStr+'/IceDrift/NSIDCv4/'+str(year)+'/NSIDCv4_driftG'+dxStr+'-'+str(year)+'_d'+dayStr+extraStr)
 
 #-- run main program
 if __name__ == '__main__':

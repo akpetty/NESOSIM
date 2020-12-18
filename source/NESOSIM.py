@@ -386,20 +386,23 @@ def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr
 	
 	#------- Read in precipitation -----------
 	try:
+		print('Loading gridded snowfall forcing from:', forcingPath+'Precip/'+precipVar+'/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 		precipDayG=np.load(forcingPath+'Precip/'+precipVar+'/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
+		
 	except:
 		if (dayStr=='365'):
-			print('no leap year data, using data from the previous day')
-			precipDayG=np.load(forcingPath+'Precip/'+precipVar+'/sf/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+'364', allow_pickle=True)
-		
+			
+			precipDayG=np.load(forcingPath+'Precip/'+precipVar+'/sf/'+str(yearT)+'/'+precipVar+'sf'+dxStr+'-'+str(yearT)+'_d'+'364'+extraStr, allow_pickle=True)
+			print('no leap year data, used data from the previous day')
 		else:
 			print('No precip data so exiting!')
 			exit()
 	
 	#------- Read in wind magnitude -----------
 	try:
+		print('Loading gridded wind forcing from:', forcingPath+'Winds/'+windVar+'/'+str(yearT)+'/'+windVar+'winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 		windDayG=np.load(forcingPath+'Winds/'+windVar+'/'+str(yearT)+'/'+windVar+'winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
-	
+		
 	except:
 		if (dayStr=='365'):
 			print('no leap year data, using data from the previous day')
@@ -411,8 +414,9 @@ def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr
 
 	#------- Read in ice concentration -----------
 	try:
+		print('Loading gridded ice conc forcing from:', forcingPath+'IceConc/'+concVar+'/'+str(yearT)+'/iceConcG_'+concVar+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 		iceConcDayG=np.load(forcingPath+'IceConc/'+concVar+'/'+str(yearT)+'/iceConcG_'+concVar+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)
-	
+		
 	except:
 		if (dayStr=='365'):
 			print('no leap year data, using data from the previous day')
@@ -427,16 +431,17 @@ def loadData(yearT, dayT, precipVar, windVar, concVar, driftVar, dxStr, extraStr
 	
 	#------- Read in ice drifts -----------
 	try:
+		print('Loading gridded ice drift forcing from:', forcingPath+'IceDrift/'+driftVar+'/'+str(yearT)+'/'+driftVar+'_driftG'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 		driftGdayG=np.load(forcingPath+'IceDrift/'+driftVar+'/'+str(yearT)+'/'+driftVar+'_driftG'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, allow_pickle=True)	
+
 	except:
-		
 		# if no drifts exist for that day then just set drifts to nan array (i.e. no drift).
 		print('No drift data')
 		driftGdayG = np.empty((2, iceConcDayG.shape[0], iceConcDayG.shape[1]))
 		driftGdayG[:] = np.nan
 
 	driftGdayG = ma.filled(driftGdayG, np.nan)
-	print(driftGdayG)
+	#print(driftGdayG)
 
 	#------- Read in temps (not currently used, placeholder) -----------
 	try:
@@ -613,7 +618,8 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 			day=day-numDaysYear1
 			yearCurrent=year2
 		
-		print ('day:', day)
+		print ('Day of year:', day)
+		print ('Date:', dates[x])
 		
 		#-------- Load daily data 
 		iceConcDayG, precipDayG, driftGdayG, windDayG, tempDayG =loadData(yearCurrent, day, precipVar, windVar, concVar, driftVar, dxStr, extraStr)
@@ -632,7 +638,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 			densityType=densityTypeT, dynamicsInc=dynamicsInc, leadlossInc=leadlossInc, windpackInc=windpackInc, atmlossInc=atmlossInc)
 		
 		if (plotdaily==1):
-			cF.plot_gridded_cartopy(lonG, latG, snowDepths[x+1, 0]+snowDepths[x+1, 1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'daily_snow_depths/snowTot_'+saveStrNoDate+str(x), units_lab='m', varStr='Snow depth', minval=0., maxval=0.6, cmap_1=cm.cubehelix_r)
+			cF.plot_gridded_cartopy(lonG, latG, snowDepths[x+1, 0]+snowDepths[x+1, 1], proj=ccrs.NorthPolarStereo(central_longitude=-45), date_string='', out=figpath+'daily_snow_depths/snowTot_'+saveStrNoDate+str(x), units_lab='m', varStr='Snow depth', minval=0., maxval=0.6)
 	
 	#------ Load last data 
 	iceConcDayG, precipDayG, _, windDayG, tempDayG =loadData(yearCurrent, day+1, precipVar, windVar, concVar, driftVar, dxStr, extraStr)

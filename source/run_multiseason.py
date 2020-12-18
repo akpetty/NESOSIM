@@ -20,6 +20,9 @@ import sys
 from calendar import monthrange
 
 from config import forcing_save_path, model_save_path, figure_path
+print('Forcing file path:' forcing_save_path)
+print('Output path:', model_save_path)
+print('Figure save path:', figure_path)
 
 import NESOSIM
 
