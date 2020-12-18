@@ -1,1 +1,4 @@
-config1.py
+config_ap.py
+.DS_Store
+./__pycache__
+

@@ -17,14 +17,13 @@ Versions:
  v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.    
  
  v1.1: This latest version of NESOSIM includes a few minor updates. Thanks to Alex Cabaj for the help with some of this. Changes include: 
-  - Upgrade of the code to Python 3.
+  - Upgrade to Python 3.
   - Switched from Basemap to pyproj/cartopy (surprisingly painful).
-  - Option of variable grids, e.g 50 km (increased from 100 km) grid resolution.
   - An extended Arctic domain to cover all the peripheral seas.
   - Introduction of CloudSat scaling parameters by Alex Cabaj (Cabaj et al., 2020).
-  - Smoothed dynamics terms (using astropy's gaussian smoothing filter) to reduce noise in the dynamics. 
-  - Replaced masked arrays with nans to be consistent throughout. Improved performance along coastlines. 
-  - New wind-atmosphere loss term (similar to lead loss but not concentration dependent).
+  - New gaussian smoothing filter (AstroPy) to reduce noise in the dynamics budgets. 
+  - Replaced masked arrays with NaNs to be consistent throughout. Improved performance along coastlines. 
+  - New wind-atmosphere blowing snow loss term (similar to lead loss but not concentration dependent).
   - Various small bug fixes.
 
 ## Getting Started
@@ -63,57 +62,42 @@ source/NESOSIM.py
 which also needs various functions included in utils.py. This file is best run using the seperate configuration/run script.
 
 ```
-python run.py
+python run_oneseason.py
+```
+or 
+```
+python run_multiseason.py
 ```
 
 Also included in this repo:
 ```
 source/analysis/
 ```
-- Analysis scripts used in Petty et al., (2018, GMD).
+- Available upon request (they are a bit messy and I'm still cleaning them up)
 
 ```
 source/get_data/
 ```
- - Scripts to download the raw forcing data files.
+ - Available upon request (they are a bit messy and I'm still cleaning them up)
 
 ```
 source/gridding/
 ```
 - Scripts to grid these raw forcing data to the model domain.
 
-```
-source/plotting
-```
-- Plotting scripts used in Petty et al., (2018, GMD).
-
-```
-saveBudgetsNCDF.py
-```
-- Convert the xarray model output to netCDF files (both stored in Output).
-
 Descriptions should be included at the top of each Python script. 
-
 
 ### Forcing Data
 
+NESOSIM (v1.1) is forced with daily (100 km) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
 
-NESOSIM (v1.1) is forced with daily (50 km) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
+The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD) but have ben updated to an extended Arctic domain (along with a few other tweaks) in this v1.1 configuration.
 
-The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD) but have ben updated to an extended 50 km (along with a few other tweaks) in this v1.1 configuration.
-
-```
-forcings/
-```
- - Currently empty because of size constraints, but all the gridded forcing data used in Petty et al., (2018, GMD) have been made available on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516, which can be downloaded, unzipped, and copied to a the Forcings folder (unless you change the DataPath variable in NESOSIM.py). Note that the files in Scripts/gridding shows how these forcings were generated from the raw data.
-
+The following file includes gridded (100 km) test forcing data for September 2018 to April 2019 including: daily ERA-5 snowfall and winds, CDR ice concentration, NSIDCv4 sea ice drift vectors. Unzip and place in the following directory for testing purposes:
 
 ```
 test_forcings/
 ```
-
- - In v1.1 this now includes gridded (50 km) test forcing data for 2018-2020: ERA-5 snowfall and winds, CDR ice concentration, OSI SAF sea ice drift vectors. 
-
 
 ### Ancillary Data
 
@@ -124,28 +108,14 @@ anc_data/
 
 ### Model Output
 
- NetCDF files used by the various analysis/plotting scripts included in this repo, which include all the model variables, can be found out:
-```
-output/budgets
-```
+NESOSIM outputs NetCDF files to the location specified in the config.py file.
 
-NetCDF files only including the primary model variables are also generated and stored in:
-```
-output/final
-```
-A single NetCDF file is provided for each annual accumulation season model run (August 15th to May 1st of the following year), providing daily data on the 100 km polar stereographic model domain. 
-In this final output, each NetCDF file includes the following variables: 
- - Effective snow depth (snowDepth)
- - Grid-cell snow volume (snowVol)
- - Bulk snow density (density)
- - Reanalysis-derived daily cumulative snowfall (Precip)
- - Passive microwave ice concentration data (iceConc)
- - Day of the year (day). 
-
- The final NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
+The v1.0 NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
 
 
-Do contact me if you any any questions or thoughts on anything included here (alek.a.petty@nasa.gov). Cheers!
+Please contact me if you any any questions or thoughts on anything included here (alek.a.petty@nasa.gov) or generate a new GitHub issue if you want to be fancy about it. 
+
+Cheers!
 
 Alek
 

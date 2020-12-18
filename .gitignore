@@ -1,4 +1,5 @@
 INFO
+.DS_Store
 ._INFO
 ._LICENSE
 ._gitignore
@@ -15,3 +16,4 @@ __pycache__/
 
 /source/__pycache/
 /source/config.py
+/test_forcings/*

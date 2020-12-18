@@ -1232,7 +1232,7 @@ def get_budgets2layers_day(outStrings, outPath, folderStr, dayT, totalOutStr, re
 def densityClim(dayT, dataPath):
 	"""Assign initial snow density based on daily Warren climatology"""
 
-	densityClim=pd.read_csv(dataPath+'/Daily_Density.csv', header=0, names=['Day', 'Density'])
+	densityClim=pd.read_csv(dataPath+'/W99_density.csv', header=0, names=['Day', 'Density'])
 	#find density of given day and multiply by 1000 to express in Kg
 	densityClimDay=1000*densityClim['Density'].iloc[dayT-1]
 

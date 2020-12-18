@@ -27,9 +27,10 @@ import os
 import pyproj
 import cartopy.crs as ccrs
 
-from config import nsidc_raw_path
-from config import forcing_save_path
-from config import figure_path
+# replace with config_[user name] and create your own config file
+from config_ap import nsidc_raw_path
+from config_ap import forcing_save_path
+from config_ap import figure_path
 
 
 def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=nsidc_raw_path, out_path=forcing_save_path, fig_path=figure_path+'IceDrift/NSIDCv4/', anc_data_path='../../AncData/'):
@@ -86,7 +87,7 @@ def main(year, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=n
 #-- run main program
 if __name__ == '__main__':
 	
-	for year in range(1980, 2008+1, 1):
+	for year in range(1986, 2008+1, 1):
 		print(year)
 		main(year)
 	
