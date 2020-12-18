@@ -1,6 +1,6 @@
 #!/bin/bash
 year='2020'
-SAVEPATH='/Volumes/PETTY_E/DATA/ICE_CONC/CDR/'
+SAVEPATH=''
 # nrt ftp://sidads.colorado.edu/pub/DATASETS/NOAA/G10016/north/daily/
 # final ftp://sidads.colorado.edu/pub/DATASETS/NOAA/G02202_V3/north/daily/
 FILE=ftp://sidads.colorado.edu/pub/DATASETS/NOAA/G10016/north/daily/"$year"/
