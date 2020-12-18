@@ -1,4 +1,5 @@
 config_ap.py
 .DS_Store
-./__pycache__
+./__pycache__/
+./v1_old/*
 

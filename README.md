@@ -30,7 +30,7 @@ Versions:
 
 ### Conda installation
 
-I recommend using the included conda environment file - nesosim3.yml - to ensure consistency in the Python 3.7 configuration when running this code. Note that in version 1.1 we have upgraded the code to run in Python 3 (3.7) so your earlier environment will likely not work anymore. The code changes were pretty small. I have found some issues with conda giving access to all the necessary libraries, so you might need to use pip to install things like xarray and cartopy
+I recommend using the included conda environment file - environment.yml - to ensure consistency in the Python 3.7 configuration when running this code. Note that in version 1.1 we have upgraded the code to run in Python 3 (3.7) so your earlier environment will likely not work anymore. The code changes were pretty small. I have found some issues with conda giving access to all the necessary libraries, so you might need to use pip to install things like xarray and cartopy
 
 ```
 conda env create -f environment.yml
@@ -73,12 +73,12 @@ Also included in this repo:
 ```
 source/analysis/
 ```
-- Available upon request (they are a bit messy and I'm still cleaning them up)
+- Currently empty, scripts available upon request (they are a bit messy and I'm still cleaning them up)
 
 ```
 source/get_data/
 ```
- - Available upon request (they are a bit messy and I'm still cleaning them up)
+ - Currently empty, scripts available upon request (they are a bit messy and I'm still cleaning them up)
 
 ```
 source/gridding/
