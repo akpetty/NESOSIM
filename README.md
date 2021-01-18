@@ -1,6 +1,8 @@
 # The NASA Eulerian Snow on Sea Ice Model (NESOSIM), v1.1
 **Contact: Alek Petty / alek.a.petty@nasa.gov / www.alekpetty.com**
 
+[![DOI](https://zenodo.org/badge/126360820.svg)](https://zenodo.org/badge/latestdoi/126360820)
+
 The NASA Eulerian Snow On Sea Ice Model (NESOSIM) is a three-dimensional, two-layer (vertical), Eulerian snow on sea ice budget model developed with the primary aim of producing daily estimates of the depth and density fo snow on sea ice across the polar oceans.  
 
 NESOSIM includes several parameterizations that represent key mechanisms of snow variability through the snow accumulation/growth season, and two snow layers to broadly represent the evolution of both old/compacted snow and new/fresh snow. 
