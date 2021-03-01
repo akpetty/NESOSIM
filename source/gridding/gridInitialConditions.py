@@ -68,7 +68,7 @@ print(t2mdurGclim.shape)
 w99=cF.getWarren(lonG, latG, 7)
 
 
-for yearT in range(2009, 2019+1, 1):
+for yearT in range(1990, 2019+1, 1):
 	if (yearT==1987):
  		continue
 

@@ -15,6 +15,7 @@
 	Update history:
 		20/04/2019: Version 1
 		05/01/2020: Version 2 - new domain and using cartopy/pyproj for gridding
+		02/26/2021: Version 3 - use 
 
 	To do:
 		Introduce a better pole hole interpolation method
@@ -32,6 +33,8 @@ import utils as cF
 import os
 import pyproj
 import cartopy.crs as ccrs
+from scipy.spatial import Delaunay
+from scipy.interpolate import LinearNDInterpolator
 
 from config import cdr_raw_path
 from config import forcing_save_path
@@ -61,6 +64,9 @@ def main(year, start_month=3, end_month=3, extraStr='v11', dx=100000, data_path=
 	if not os.path.exists(out_path+'/'+dxStr+'/IceConc/CDR/'+str(year)):
 		os.makedirs(out_path+'/'+dxStr+'/IceConc/CDR/'+str(year))
 	
+	calc_weights=1 # start as one to calculate weightings then gets set as zero for future files
+
+
 	for month in range(start_month, end_month+1):
 		print(month)
 		mstr='%02d' %(month+1)
@@ -92,12 +98,21 @@ def main(year, start_month=3, end_month=3, extraStr='v11', dx=100000, data_path=
 						continue
 			print(fileT)
 
+			fileT=glob(data_path+str(year)+'/*'+str(year)+mstr+dayMonStr+'*.nc')[0]
 			iceConcDay, lats0, lons0, xpts0, ypts0= cF.getCDRconcproj(proj, fileT, mask=0, maxConc=1, lowerConc=1)
-			print(iceConcDay.shape, lats0.shape)
-			
 			iceConcDay[np.where(region_mask>10)]=np.nan
+			print(iceConcDay.shape, lats0.shape)
 
-			iceConcDayG = griddata((xpts0.flatten(), ypts0.flatten()), iceConcDay.flatten(), (xptsG, yptsG), method='linear')
+			if (calc_weights==1):
+				# calculate Delaunay triangulation interpolation weightings for first file of the year
+				ptM_arr = np.array([xpts0.flatten(),ypts0.flatten()]).T
+				tri = Delaunay(ptM_arr)
+				calc_weights=0 # stop it doing this again for future dates as we only need it once
+
+			interp = LinearNDInterpolator(tri,iceConcDay.flatten())
+			iceConcDayG = interpy((xptsG,yptsG))
+
+			#iceConcDayG = griddata((xpts0.flatten(), ypts0.flatten()), iceConcDay.flatten(), (xptsG, yptsG), method='linear')
 			
 			iceConcDayG[np.where(iceConcDayG<0.15)]=0
 			iceConcDayG[np.where(iceConcDayG>1)]=1
@@ -112,7 +127,7 @@ def main(year, start_month=3, end_month=3, extraStr='v11', dx=100000, data_path=
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(2020, 2020+1, 1):
+	for y in range(1980, 2020+1, 1):
 		print(y)
 		main(y)
 

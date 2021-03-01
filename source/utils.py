@@ -36,6 +36,7 @@ import pandas as pd
 import netCDF4 as nc4
 import matplotlib.cm as cm
 import pandas as pd
+from scipy.interpolate import LinearNDInterpolator
 
 def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 	precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowLead, snowAtm, snowWindPack):
@@ -286,8 +287,45 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 	driftFG[0]=ma.masked_where(np.isnan(driftFGx), driftFGxg)
 	driftFG[1]=ma.masked_where(np.isnan(driftFGy), driftFGyg)
 	
-
 	return driftFG
+
+def int_smooth_drifts_v3(tri, xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=1, x_size_val=3, truncate=1):
+	# Added the LinearNDInterpolator output to speed up gridding
+
+	# use info from https://stackoverflow.com/questions/18697532/gaussian-filtering-a-image-with-nan-in-python
+	# to better rapply to nan regions
+	nx=xptsG.shape[0]
+	ny=xptsG.shape[1]
+
+	driftFG=ma.masked_all((2, nx, ny))
+
+	# Bodge way of making a mask
+	badData = np.zeros((xptsF.shape))
+	# & (latsF>88)) if we want to mask the pole hole
+	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
+
+	driftFx = driftFmon[0][np.where(badData<0.5)]
+	driftFy = driftFmon[1][np.where(badData<0.5)]
+	xptsFM = xptsF[np.where(badData<0.5)]
+	yptsFM = yptsF[np.where(badData<0.5)]
+
+	interpx = LinearNDInterpolator(tri,driftFx.flatten())
+	driftFGx = interpx((xptsG,yptsG))
+
+	interpy = LinearNDInterpolator(tri,driftFy.flatten())
+	driftFGy = interpy((xptsG,yptsG))
+
+	kernel = Gaussian2DKernel(x_stddev=sigma_factor, y_stddev=sigma_factor,x_size=x_size_val, y_size=x_size_val)
+
+	driftFGxg = convolve(driftFGx, kernel)
+	driftFGyg = convolve(driftFGy, kernel)
+
+	# Mask based on original gridded data
+	driftFG[0]=ma.masked_where(np.isnan(driftFGx), driftFGxg)
+	driftFG[1]=ma.masked_where(np.isnan(driftFGy), driftFGyg)
+	
+	return driftFG
+
 
 def getOIBbudgetDays(datesOIBT, yearT, monthT, dayT):
 	"""Get number of days from start month of model run for the OIB dates"""
