@@ -33,9 +33,10 @@ import os
 import pyproj
 import cartopy.crs as ccrs
 
-from config import reanalysis_raw_path
-from config import forcing_save_path
-from config import figure_path
+from scipy.spatial import Delaunay
+from scipy.interpolate import LinearNDInterpolator
+
+from config import reanalysis_raw_path, forcing_save_path, figure_path
 
 
 
@@ -76,6 +77,20 @@ def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=re
 	else:
 		endDay=monIndex[endMonth+1]
 
+	# calculate Delaunay triangulation for a single day	
+
+	dayT0 = startDay
+	dayStr='%03d' %dayT0
+	month=np.where(dayT0-np.array(monIndex)>=0)[0][-1]
+	monStr='%02d' %(month+1)
+	dayinmonth=dayT0-monIndex[month]
+	print('Wind day:', dayT0, dayinmonth)
+	xptsM, yptsM, lonsM, latsM, WindMag =cF.get_ERA5_wind_days_pyproj(proj, data_path, str(yearT), monStr, dayinmonth, lowerlatlim=30)
+	print('calculating Delaunay triangulation')
+
+	ptM_arr = np.array([xptsM.flatten(),yptsM.flatten()]).T
+	tri = Delaunay(ptM_arr)
+
 	for dayT in range(startDay, endDay):
 	
 		dayStr='%03d' %dayT
@@ -90,7 +105,10 @@ def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=re
 		#in  kg/m2 per day
 		xptsM, yptsM, lonsM, latsM, WindMag =cF.get_ERA5_wind_days_pyproj(proj, data_path, str(yearT), monStr, dayinmonth, lowerlatlim=30)
 
-		windMagG = griddata((xptsM.flatten(), yptsM.flatten()), WindMag.flatten(), (xptsG, yptsG), method='linear')
+		# grid using linearNDInterpolator with triangulation calculated above 
+		# (faster than griddata but produces identical output)		
+		interp = LinearNDInterpolator(tri,WindMag.flatten())
+		windMagG = interp((xptsG,yptsG))
 
 		cF.plot_gridded_cartopy(lonG, latG, windMagG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/ERA5winds-'+str(yearT)+'_d'+str(dayT)+extraStr, date_string=str(yearT), month_string=str(dayT), extra=extraStr, varStr='ERA5 winds ', units_lab=r'kg/m2', minval=0, maxval=10, cmap_1=plt.cm.viridis)
 		
