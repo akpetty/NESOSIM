@@ -15,3 +15,4 @@ dependencies:
   - cdsapi
   - xarray
   - cartopy
+  - astropy

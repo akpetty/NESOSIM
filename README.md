@@ -11,14 +11,15 @@ NESOSIM includes several parameterizations that represent key mechanisms of snow
 
 NESOSIM is being made available as an open source project to encourage continued model development and active engagement with the snow on sea ice community. The model code is written in Python, an open source programming language (Python Software Foundation, https://www.python.org/), to better enable future community development efforts. Our hope is that the model will continue to evolve as additional snow processes are incorporated, especially as new field and remote sensing snow observations are collected and made available for calibration/validation. Obvious examples of planned future improvements include the incorporation of snow melt and rain on snow processes, which are not currently included in this initial model version, enabling the model to be run year-round.
 
-For more details of the model physics and preliminary results/calibration efforts see the following discussion paper:
+For more details of the model physics and preliminary results/calibration efforts of NESOSIM (v1.0) see the following published paper:
 
-Petty, A. A., M. Webster, L. N. Boisvert, T. Markus, The NASA Eulerian Snow on Sea Ice Model (NESOSIM): Initial model development and analysis, Geosci. Mod. Dev.
+Petty, A. A., M. Webster, L. N. Boisvert, T. Markus (2018), The NASA Eulerian Snow on Sea Ice Model (NESOSIM) v1.0: Initial model development and analysis, Geosci. Model Dev., doi: 10.5194/gmd-11-4577-2018.
 
-Versions:   
- v1.0: This initial NESOSIM model version is configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.    
- 
- v1.1: This latest version of NESOSIM includes a few minor updates. Thanks to Alex Cabaj for the help with some of this. Changes include: 
+  
+The initial NESOSIM model version (v1.0) was configured to run only for the Arctic Ocean through the accumulation season (August 15th to May 1st). This was the version described in Petty et al., (2018) so please grab that specific source code if needed (click on the releases tab above) for that specific code version.    
+
+Upgrades: 
+ v1.1: The furst (and currently latest) upgrade of NESOSIM includes several upgrades and bug fixes. Thanks to Alex Cabaj for the help with some of this. Changes include: 
   - Upgrade to Python 3.
   - Switched from Basemap to pyproj/cartopy (surprisingly painful).
   - An extended Arctic domain to cover all the peripheral seas.
@@ -28,11 +29,15 @@ Versions:
   - New wind-atmosphere blowing snow loss term (similar to lead loss but not concentration dependent).
   - Various small bug fixes.
 
+For more details of the upgrades from NESOSIM v1.0 to NESOSIM v1.1 please see the following discussion paper:
+
+Petty A. A., N. Keeney, A. Cabaj, P. Kushner, M. Bagnardi (2022), Winter Arctic sea ice thickness from ICESat-2: upgrades to freeboard and snow loading estimates and an assessment of the first three winters of data collection, The Cryosphere Discuss (preprint), doi: 10.5194/tc-2022-39.
+
 ## Getting Started
 
 ### Conda installation
 
-I recommend using the included conda environment file - environment.yml - to ensure consistency in the Python 3.7 configuration when running this code. Note that in version 1.1 we have upgraded the code to run in Python 3 (3.7) so your earlier environment will likely not work anymore. The code changes were pretty small. I have found some issues with conda giving access to all the necessary libraries, so you might need to use pip to install things like xarray and cartopy
+I recommend using the included conda environment file - environment.yml - to ensure consistency in the Python 3.7 configuration when running this code. Note that in version 1.1 we have upgraded the code to run in Python 3 (3.7) so your earlier environment will likely not work anymore. The code changes were pretty small. I have found some issues with conda giving access to all the necessary libraries, so you might need to use pip to install things like xarray and cartopy. Note this was updated in March 2021 to include the astropy module which was previously missing (thanks to Janna Rückert for pointing this out).
 
 ```
 conda env create -f environment.yml
@@ -41,7 +46,7 @@ conda env create -f environment.yml
 Alternatively you can try generating your own conda environment using the following packages
 
 ```
-conda create -n nesosim3 python=3.7 scipy matplotlib basemap h5py netCDF4 xarray proj4 cdsapi
+conda create -n nesosim3 python=3.7 scipy matplotlib basemap h5py netCDF4 xarray proj4 cdsapi astropy
 
 ```
 The conda Python environment can be activated with 
@@ -91,11 +96,13 @@ Descriptions should be included at the top of each Python script.
 
 ### Forcing Data
 
-NESOSIM (v1.1) is forced with daily (100 km default but higher resolution possible) gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April).  
+NESOSIM (v1.1) is forced with daily gridded inputs of snowfall and near-surface winds (from reanalyses), sea ice concentration (from satellite passive microwave data) and sea ice drift (from satellite feature tracking), during the accumulation season (August through April). A 100 km grid is used by default but higher resolutions are possible based on user needs (and regenerating the gridded forcings).
 
 The various forcing data used to run NESOSIM are described in Petty et al., (2018, GMD) but have ben updated to an extended Arctic domain (along with a few other tweaks) in this v1.1 configuration.
 
-The test_forcings.zip file includes gridded (100 km) test forcing data for September 2018 to April 2019 including: daily ERA-5 snowfall and winds, CDR ice concentration, NSIDCv4 sea ice drift vectors. Unzip and it should automatically create a test forcing directory for testing purposes:
+The gridded forcings (and initial conditions) used to generate the v1.1 output from September 1st 1980 to April 30th 2021 are now available on Zenodo: https://doi.org/10.5281/zenodo.6338558 (in the gridded_forcings.zip file). The files are stored as Python pickles which are easily loaded by the included NESOSIM source code reader. 
+
+The test_forcings.zip file included in the repository provides the gridded (100 km) test forcing data for September 2018 to April 2019 including: daily ERA-5 snowfall and winds, CDR ice concentration, NSIDCv4 sea ice drift vectors. Unzip and it should automatically create a test forcing directory for testing purposes:
 
 ```
 test_forcings/
@@ -106,13 +113,15 @@ test_forcings/
 ```
 anc_data/
 ```
-- Contains temperature-scaled intitial snow depths and the drifting soviet station data that were used for model calibration.
+- Contains region masks, CloudSat scalings and the drifting soviet station data that were used for v1.0 model calibration.
 
 ### Model Output
 
 NESOSIM outputs NetCDF files to the location specified in the config.py file.
 
-The v1.0 NetCDF data files for the ERA-I and MEDIAN forced simulations are also hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516
+The v1.1 output from September 1st 1980 to April 30th 2021 using ERA5 forcing are available on Zenodo: https://doi.org/10.5281/zenodo.6338558
+
+The v1.0 output using ERA-I and MEDIAN forced simulations (2000 to 2015) were originally hosted on the NASA Cryospheric Sciences Lab website: https://neptune.gsfc.nasa.gov/csb/index.php?section=516. We recommend users now utilize the latest v1.1 model output described above. 
 
 Please contact me if you any any questions or thoughts on anything included here (alek.a.petty@nasa.gov) or generate a new GitHub issue if you want to be fancy about it. 
 
