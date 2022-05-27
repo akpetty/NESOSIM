@@ -52,7 +52,7 @@ def main(year, startMonth=8, endMonth=11, dx=100000, extraStr='v11_1', data_path
 	print(dxStr)
 
 
-	region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
+	region_mask, xptsI, yptsI, _, _ = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
 	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
 
 	varStr='sf'
@@ -105,7 +105,7 @@ def main(year, startMonth=8, endMonth=11, dx=100000, extraStr='v11_1', data_path
 		interp = LinearNDInterpolator(tri,Precip.flatten())
 		PrecipG = interp((xptsG,yptsG))
 
-		cF.plot_gridded_cartopy(lonG, latG, PrecipG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/'+varStr+'-'+str(yearT)+'_d'+str(dayT)+'T2', date_string=str(yearT), month_string=str(dayT), extra=extraStr, varStr='ERA5 snowfall ', units_lab=r'kg/m2', minval=0, maxval=10, cmap_1=plt.cm.viridis)
+		cF.plot_gridded_cartopy(lonG, latG, PrecipG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/ERA5'+varStr+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, date_string=str(yearT), month_string=str(dayT), extra=extraStr, varStr='ERA5 snowfall ', units_lab=r'kg/m2', minval=0, maxval=10, cmap_1=plt.cm.viridis)
 		
 		PrecipG.dump(out_path+str(yearT)+'/ERA5'+varStr+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 

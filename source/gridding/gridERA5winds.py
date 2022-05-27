@@ -41,8 +41,7 @@ from config import reanalysis_raw_path, forcing_save_path, figure_path
 
 
 
-def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Winds/ERA5/', fig_path=figure_path+'Winds/ERA5/', anc_data_path='../../anc_data/'):
-
+def main(year, startMonth=0, endMonth=11, dx=100000, extraStr='v11_1', data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Winds/ERA5/', fig_path=figure_path+'Winds/ERA5/', anc_data_path='../../anc_data/'):
 
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -52,7 +51,7 @@ def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=re
 	print(dxStr)
 
 
-	region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
+	region_mask, xptsI, yptsI, _, _ = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
 	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
 
 	varStr='WindMag'
@@ -98,7 +97,7 @@ def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=re
 		if calc_weights == 1:
 			# calculate Delaunay triangulation interpolation weightings for first file of the year
 			print('calculating interpolation weightings')
-			ptM_arr = np.array([xpts.flatten(),ypts.flatten()]).T
+			ptM_arr = np.array([xptsM.flatten(),yptsM.flatten()]).T
 			tri = Delaunay(ptM_arr) # delaunay triangulation
 			calc_weights = 0
 
@@ -108,7 +107,7 @@ def main(year, startMonth=0, endMonth=11, dx=50000, extraStr='v11', data_path=re
 		interp = LinearNDInterpolator(tri,WindMag.flatten())
 		windMagG = interp((xptsG,yptsG))
 
-		cF.plot_gridded_cartopy(lonG, latG, windMagG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/ERA5winds-'+str(yearT)+'_d'+str(dayT)+extraStr, date_string=str(yearT), month_string=str(dayT), extra=extraStr, varStr='ERA5 winds ', units_lab=r'kg/m2', minval=0, maxval=10, cmap_1=plt.cm.viridis)
+		cF.plot_gridded_cartopy(lonG, latG, windMagG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/ERA5winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr, date_string=str(yearT), month_string=str(dayT), extra=extraStr, varStr='ERA5 winds ', units_lab=r'kg/m2', minval=0, maxval=10, cmap_1=plt.cm.viridis)
 		
 		windMagG.dump(out_path+str(yearT)+'/ERA5winds'+dxStr+'-'+str(yearT)+'_d'+dayStr+extraStr)
 

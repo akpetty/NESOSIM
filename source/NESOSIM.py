@@ -71,7 +71,7 @@ def calcLeadLoss(snowDepthT, windDayT, iceConcDaysT):
 	snowLeadT = -(windT*leadLossFactor*deltaT*snowDepthT*windDayT*(1-iceConcDaysT)) #*iceConcDaysG[x]
 	return snowLeadT
 
-def calcAtmLoss(snowDepthT, windDayT, atm_loss_factor=0.15):
+def calcAtmLoss(snowDepthT, windDayT):
 	""" Snow lost to the atmosphere due to winds
 
 	Using a multiple of the variable windlossfactor parameter. This is relatively unconstrained!
@@ -79,19 +79,19 @@ def calcAtmLoss(snowDepthT, windDayT, atm_loss_factor=0.15):
 	Args:
 		snowDepthT (var): Daily gridded snowdepth 
 		WindDayT (var): Daily gridded wind magnitude
-		atm_loss_factor (var): extra atm loss factor, replacing the concentration dependence of the lead loss factor
-
+		
 	returns:
 		snowAtmLossT (var): Snow lost from fresh snow layer
 
 	Updates:
 		v1.1: new wind-atmosphere snow loss term
+		v1.1 (May 2022): removed dependence on leadLossFactor and changed default value of atm_loss_factor (from 0.15 to 2e-8)
 
 	"""
 
 	windT= np.where(windDayT>windPackThresh, 1, 0)
 	
-	snowAtmLossT = -(windT*leadLossFactor*deltaT*snowDepthT*windDayT*atm_loss_factor) #*iceConcDaysG[x]
+	snowAtmLossT = -(windT*deltaT*snowDepthT*windDayT*atmLossFactor)
 	return snowAtmLossT
 
 def calcWindPacking(windDayT, snowDepthT0):
@@ -494,7 +494,7 @@ def applyScaling(product,factor,scaling_type='mul'):
 
 def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.', anc_data_pathT='../anc_data/', figPathT='../Figures/', 
 	precipVar='ERA5', windVar='ERA5', driftVar='OSISAF', concVar='CDR', icVar='ERAI', densityTypeT='variable', 
-	outStr='', extraStr='', IC=2, windPackFactorT=0.1, windPackThreshT=5., leadLossFactorT=0.1, dynamicsInc=1, leadlossInc=1, 
+	outStr='', extraStr='', IC=2, windPackFactorT=0.1, windPackThreshT=5., leadLossFactorT=0.1, atmLossFactorT=2.2e-8, dynamicsInc=1, leadlossInc=1, 
 	windpackInc=1, atmlossInc=0, saveData=1, plotBudgets=1, plotdaily=1, saveFolder='', dx=50000,scaleCS=False):
 	""" 
 
@@ -524,7 +524,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 	print('ancDataPath:', ancDataPath)
 
 	# Assign density of the two snow layers
-	global snowDensityFresh, snowDensityOld, minSnowD, minConc, leadLossFactor, windPackThresh, windPackFactor, deltaT
+	global snowDensityFresh, snowDensityOld, minSnowD, minConc, leadLossFactor, atmLossFactor, windPackThresh, windPackFactor, deltaT
 	snowDensityFresh=200. # density of fresh snow layer
 	snowDensityOld=350. # density of old snow layer
 	minSnowD=0.02 # minimum snow depth for a density estimate
@@ -538,6 +538,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 	leadLossFactor=leadLossFactorT # Snow loss to leads coefficient
 	windPackThresh=windPackThreshT # Minimum winds needed for wind packing
 	windPackFactor=windPackFactorT # Fraction of snow packed into old snow layer
+	atmLossFactor=atmLossFactorT # Snow loss to atmosphere coefficient
 
 	#---------- Current year
 	yearCurrent=year1
@@ -594,7 +595,7 @@ def main(year1, month1, day1, year2, month2, day2, outPathT='.', forcingPathT='.
 		elif (IC==2):
 			# Petty initiail conditions
 			try:
-				ICSnowDepth = np.load(forcingPath+'InitialConditions/'+icVar+'/ICsnow'+str(year1)+'-'+dxStr+extraStr, allow_pickle=True)
+				ICSnowDepth = np.load(forcingPath+'InitialConditions/'+icVar+'/ICsnow'+dxStr+'-'+str(year1)+extraStr, allow_pickle=True)
 				print('Initialize with new v1.1 scaled initial conditions')
 				print(np.amax(ICSnowDepth))
 			except:

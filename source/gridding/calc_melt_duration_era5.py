@@ -67,11 +67,8 @@ def get_cumulative_hotdays(temp_year_gridcell):
 	
 	return t2mdur
 
-def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path, fig_path=figure_path+'Temp/ERA5/', anc_data_path='../../anc_data/'):
+def main(yearT, extraStr='v11_1', dx=100000, data_path=reanalysis_raw_path+'ERA5/', out_path=forcing_save_path+'Temp/ERA5/', fig_path=figure_path+'Temp/ERA5/', anc_data_path='../../anc_data/'):
 	
-	reanalysis='ERA5'
-
-
 
 	xptsG, yptsG, latG, lonG, proj = cF.create_grid(dxRes=dx)
 	print(xptsG)
@@ -80,10 +77,13 @@ def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=
 	dxStr=str(int(dx/1000))+'km'
 	print(dxStr)
 
-	if not os.path.exists(out_path+'/'+dxStr+'/Temp/'+reanalysis):
-		os.makedirs(out_path+'/'+dxStr+'/Temp/'+reanalysis)
+	if not os.path.exists(out_path):
+		os.makedirs(out_path)
 
-	region_mask, xptsI, yptsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
+	if not os.path.exists(fig_path):
+		os.makedirs(fig_path)
+
+	region_mask, xptsI, yptsI, _, _ = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
 	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
 
 	varStr='t2m'
@@ -104,11 +104,11 @@ def main(yearT, startMonth=0, endMonth=11, extraStr='v11', dx=100000, data_path=
 	cF.plot_gridded_cartopy(lonG, latG, t2mdurG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'/duration'+str(yearT)+extraStr, date_string=str(yearT), extra=extraStr, varStr='hot days', units_lab=r'>0', minval=0, maxval=100, cmap_1=plt.cm.viridis)
 		
 	#monthStr='%02d' %(month+1)
-	t2mdurG.dump(out_path+'/'+dxStr+'/Temp/'+reanalysis+'/duration'+dxStr+'-'+str(yearT)+extraStr)
+	t2mdurG.dump(out_path+'/ERA5_duration'+dxStr+'-'+str(yearT)+extraStr)
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(1991, 2008+1, 1):
+	for y in range(2021, 2021+1, 1):
 		print(y)
 		main(y)
 

@@ -36,6 +36,9 @@ import pandas as pd
 import netCDF4 as nc4
 import matplotlib.cm as cm
 import pandas as pd
+from scipy.spatial import Delaunay
+from scipy.interpolate import LinearNDInterpolator
+
 
 def OutputSnowModelRaw(savePath, saveStr, snowDepths, density, \
 	precipDays, iceConcDays, windDays, snowAcc, snowOcean, snowAdv, snowDiv, snowLead, snowAtm, snowWindPack):
@@ -289,6 +292,51 @@ def int_smooth_drifts_v2(xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_fac
 
 	return driftFG
 
+def int_smooth_drifts_v3(tri, xptsG, yptsG, xptsF, yptsF, latsF, driftFmon, sigma_factor=1, x_size_val=3, truncate=1):
+	# use info from https://stackoverflow.com/questions/18697532/gaussian-filtering-a-image-with-nan-in-python
+	# to better rapply to nan regions
+
+	# Updated to use 
+
+	nx=xptsG.shape[0]
+	ny=xptsG.shape[1]
+
+	driftFG=ma.masked_all((2, nx, ny))
+
+	# Bodge way of making a mask
+	badData = np.zeros((xptsF.shape))
+	# & (latsF>88)) if we want to mask the pole hole
+	badData[np.where(np.isnan(driftFmon[1])& (latsF>90))]=1
+
+	driftFx = driftFmon[0][np.where(badData<0.5)]
+	driftFy = driftFmon[1][np.where(badData<0.5)]
+	xptsFM = xptsF[np.where(badData<0.5)]
+	yptsFM = yptsF[np.where(badData<0.5)]
+
+	#driftFGx = griddata((xptsFM, yptsFM), driftFx, (xptsG, yptsG), method='linear')
+	#driftFGy = griddata((xptsFM, yptsFM), driftFy, (xptsG, yptsG), method='linear')
+
+	interpx = LinearNDInterpolator(tri,driftFx.flatten())
+	driftFGx = interpx((xptsG,yptsG))
+
+	interpy = LinearNDInterpolator(tri,driftFy.flatten())
+	driftFGy = interpy((xptsG,yptsG))
+
+	#driftFGx[np.isnan(driftFGx)]=0
+	#driftFGy[np.isnan(driftFGy)]=0
+
+	kernel = Gaussian2DKernel(x_stddev=sigma_factor, y_stddev=sigma_factor,x_size=x_size_val, y_size=x_size_val)
+
+	driftFGxg = convolve(driftFGx, kernel)
+	driftFGyg = convolve(driftFGy, kernel)
+
+	# Mask based on original gridded data
+	driftFG[0]=ma.masked_where(np.isnan(driftFGx), driftFGxg)
+	driftFG[1]=ma.masked_where(np.isnan(driftFGy), driftFGyg)
+	
+
+	return driftFG
+
 def getOIBbudgetDays(datesOIBT, yearT, monthT, dayT):
 	"""Get number of days from start month of model run for the OIB dates"""
 
@@ -379,6 +427,48 @@ class P3413(ccrs.Projection):
         for k, v in vars(self).items():
             print (f'{k}: {v}')
 
+class POSISAF(ccrs.Projection):
+	# OSISAF projection in CRS format
+    
+    def __init__(self):
+
+        # see: http://www.spatialreference.org/ref/epsg/3408/
+        proj4_params = {'proj': 'stere',
+            'lat_0': 90.,
+            'lon_0': -45,
+            'x_0': 0,
+            'y_0': 0,
+            'units': 'm',
+            'no_defs': ''}
+
+        super(POSISAF, self).__init__(proj4_params)
+
+    @property
+    def boundary(self):
+        coords = ((self.x_limits[0], self.y_limits[0]),(self.x_limits[1], self.y_limits[0]),
+                  (self.x_limits[1], self.y_limits[1]),(self.x_limits[0], self.y_limits[1]),
+                  (self.x_limits[0], self.y_limits[0]))
+
+        return ccrs.sgeom.Polygon(coords).exterior
+
+    @property
+    def threshold(self):
+        return 1e5
+
+    @property
+    def x_limits(self):
+        return (-3750000, 3625000)
+        #return (-9000000, 9000000)
+
+    @property
+    def y_limits(self):
+        return (-5250000, 5750000)
+        #return (-9000000, 9000000)
+
+    def describe(self):
+        for k, v in vars(self).items():
+            print (f'{k}: {v}')
+
 
 class EASE_North(ccrs.Projection):
 	# Original EASE North projection class
@@ -444,17 +534,32 @@ def get_osisaf_drifts_proj(proj, fileT):
 	lon1 = (f.variables['lon1'][0])
 	lat = (f.variables['lat'][:])
 	lat1 = (f.variables['lat1'][0])
+
+	xc = (f.variables['xc'][:])*1000.
+	yc = (f.variables['yc'][:])*1000.
+
+	xc2d, yc2d = np.meshgrid(xc, yc)
+
+
 	f.close()
 
-	lond = lon1-lon
-	latd = lat1-lat
+	#lond = lon1-lon
+	#latd = lat1-lat
 	
+	srcProj = POSISAF() 
+	psrc=pyproj.Proj(srcProj)
+	print(srcProj)
+	print(xc2d.shape)
+	print(yc2d.shape)
+	lonc, latc = psrc(xc2d, yc2d, inverse=True)
+	xpts, ypts=proj(lonc, latc)
+
 	# transform to map project coordinates (basemap's axes, assume they have unit of m)
 	x0, y0=proj(lon, lat)
 	x1, y1=proj(lon1, lat1)
 
-	xpts=(x0+x1)/2.
-	ypts=(y0+y1)/2.
+	#xpts=(x0+x1)/2.
+	#ypts=(y0+y1)/2.
 
 	# normalize drift components to m/s (x1-x0 is already m, so we just divide by 2-days worth of seconds)
 	xt=(x1-x0)/(60*60*24*2.)
@@ -810,9 +915,11 @@ def get_ERA5_meltduration(m, dataPath, yearT):
 
 	return xpts, ypts, lon, lat, temp2mAnnual
 
-def getCDRconcproj(proj, fileT, mask=1, maxConc=0, lowerConc=0):
+def getCDRconcproj(fileT, mask=1, maxConc=0, lowerConc=0):
 	"""
 	Grab the CDR ice concentration
+
+	Updated for V4 where lat/lon are no longer provided and concentration variable name changed slightly
 
 	"""
 
@@ -820,10 +927,10 @@ def getCDRconcproj(proj, fileT, mask=1, maxConc=0, lowerConc=0):
 	print(fileT)
 
 	# read lat/lon (start points) and lat1/lon1 (end points)
-	lon = (f.variables['longitude'][:])
-	lat = (f.variables['latitude'][:])
+	#lon = (f.variables['longitude'][:])
+	#lat = (f.variables['latitude'][:])
 	# Convert percent to conc!
-	conc = (f.variables['seaice_conc_cdr'][0])
+	conc = (f.variables['cdr_seaice_conc'][0])
 	f.close()
 
 	if (mask==1):
@@ -835,10 +942,7 @@ def getCDRconcproj(proj, fileT, mask=1, maxConc=0, lowerConc=0):
 	if (lowerConc==1):
 		conc = ma.where(conc<0.15,0, conc)
 
-	# transform to map project coordinates (basemap's axes, assume they have unit of m)
-	x0, y0=proj(lon, lat)
-	
-	return conc, lat, lon, x0, y0
+	return conc
 
 
 def read_icebridge_snowdepths(proj, dataPath, year, mask=1):
@@ -918,7 +1022,7 @@ def plot_gridded_cartopy(lons, lats, var, proj=ccrs.NorthPolarStereo(central_lon
 	cb.set_label(varStr+' ('+units_lab+')',size=8)
 	ax.set_title(varStr+' '+date_string+month_string+extra)
 
-	plt.tight_layout()
+	#plt.tight_layout()
 	#print 'Saving..'
 	plt.savefig(out+'.png', dpi=200)
 	plt.close(fig)
@@ -976,7 +1080,7 @@ def plot_drift_cartopy(lons, lats, xpts, ypts, var_x, var_y, var_mag, proj=ccrs.
 	qk = plt.quiverkey(Q, 3389969, 3389969, vector_val, str(vector_val)+' '+units_vec, coordinates='data', zorder = 11)   
 
 
-	plt.tight_layout()
+	#plt.tight_layout()
 	#print 'Saving..'
 	plt.savefig(out+'.png', dpi=200)
 	plt.close(fig)
@@ -1271,7 +1375,7 @@ def get_region_mask_pyproj(anc_data_path, proj, xypts_return=0):
 		# switched lat and lon from basemap
 		xpts, ypts = proj(lons_mask, lats_mask)
 
-		return region_mask, xpts, ypts
+		return region_mask, xpts, ypts, lons_mask, lats_mask
 	else:
 		return region_mask
 
