@@ -52,9 +52,20 @@ def main(year, startMonth=3, endMonth=3, extraStr='v11_1', dx=100000, data_path=
 	dxStr=str(int(dx/1000))+'km'
 	print(dxStr)
 
+	#region_mask, xptsI, yptsI, lonsI, latsI = cF.get_region_mask_v2_pyproj(anc_data_path, proj, xypts_return=1)
 	region_mask, xptsI, yptsI, lonsI, latsI = cF.get_region_mask_pyproj(anc_data_path, proj, xypts_return=1)
+    
+    #print(xptsI.flatten())
+    #print(yptsI.flatten())
 	region_maskG = griddata((xptsI.flatten(), yptsI.flatten()), region_mask.flatten(), (xptsG, yptsG), method='nearest')
+    
+	cF.plot_gridded_cartopy(lonG, latG, region_maskG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'region_mask_gridded'+extraStr, date_string='', month_string='', extra='', varStr='region_mask', units_lab='', minval=0, maxval=12, cmap_1=plt.cm.viridis)
 
+	cF.plot_gridded_not_cartopy(xptsG, yptsG, region_maskG, out=fig_path+'region_mask_gridded'+extraStr, date_string='', month_string='', extra='', varStr='region_mask', units_lab='', minval=0, maxval=12, cmap_1=plt.cm.viridis)
+
+    
+	cF.plot_gridded_cartopy(lonsI, latsI, region_mask, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'region_mask_raw'+extraStr, date_string='', month_string='', extra='', varStr='region_mask', units_lab='', minval=0, maxval=12, cmap_1=plt.cm.viridis)
+    
 	product='CDR'
 
 	numDaysYr=cF.getLeapYr(year)
@@ -86,33 +97,42 @@ def main(year, startMonth=3, endMonth=3, extraStr='v11_1', dx=100000, data_path=
 			dayMonStr='%02d' %(x+1)
 			print('day month string', dayMonStr)
 			
-			try:
-				# Try final first
-				fileT=glob(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')[0]
-				print(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')
-				print('final data')
-			except:
-				try:
-					# Try nrt
-					fileT=glob(data_path+'/nrt/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')[0]
-					print(data_path+'/nrt/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')
-					print('nrt data')
-				except:	
-					try:
-						dayMonStr='%03d' %(dayT-1)
-						fileT=glob(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')[0]
-						print(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')
-						print('previous day final data')
-					except:
-						try:
-							dayMonStr='%03d' %(dayT+1)
-							fileT=glob(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')[0]
-							print(data_path+'/final/'+str(year)+'/'+mstr+'/*'+str(year)+mstr+dayMonStr+'*.nc')
-							print('following day final data')
-						except:
-							print('no conc')
-							# previously was pass but this meant it would just use the previous loop data below
-							continue
+			# Prefer CDR v6 (flat by year), then NRT v4, then legacy final/nrt YYYY/MM layouts
+			date_tag = str(year)+mstr+dayMonStr
+			fileT = None
+			for pattern, label in (
+				(data_path+'/final/v6/'+str(year)+'/*'+date_tag+'*.nc', 'final v6'),
+				(data_path+'/nrt/v4/'+str(year)+'/*'+date_tag+'*.nc', 'nrt v4'),
+				(data_path+'/final/'+str(year)+'/'+mstr+'/*'+date_tag+'*.nc', 'final legacy'),
+				(data_path+'/nrt/'+str(year)+'/'+mstr+'/*'+date_tag+'*.nc', 'nrt legacy'),
+			):
+				matches = glob(pattern)
+				if matches:
+					fileT = matches[0]
+					print(pattern)
+					print(label)
+					break
+
+			if fileT is None:
+				# Fall back to adjacent calendar day in v6/final only
+				for offset, label in ((-1, 'previous day'), (1, 'following day')):
+					adj = '%02d' % (x+1+offset)
+					if int(adj) < 1 or int(adj) > numDays:
+						continue
+					adj_tag = str(year)+mstr+adj
+					matches = glob(data_path+'/final/v6/'+str(year)+'/*'+adj_tag+'*.nc')
+					if not matches:
+						matches = glob(data_path+'/final/'+str(year)+'/'+mstr+'/*'+adj_tag+'*.nc')
+					if matches:
+						fileT = matches[0]
+						print(fileT)
+						print(label+' final data')
+						break
+
+			if fileT is None:
+				print('no conc')
+				# previously was pass but this meant it would just use the previous loop data below
+				continue
 
 			iceConcDay = cF.getCDRconcproj(fileT, mask=0, maxConc=1, lowerConc=1)
 			print(iceConcDay.shape)
@@ -128,7 +148,6 @@ def main(year, startMonth=3, endMonth=3, extraStr='v11_1', dx=100000, data_path=
 				tri = Delaunay(ptM_arr) # delaunay triangulation
 				calc_weights = 0
 
-			
 			iceConcDay[np.where(region_mask>10)]=np.nan
 
 			#iceConcDayG = griddata((xpts0.flatten(), ypts0.flatten()), iceConcDay.flatten(), (xptsG, yptsG), method='linear')
@@ -144,14 +163,16 @@ def main(year, startMonth=3, endMonth=3, extraStr='v11_1', dx=100000, data_path=
 
 			cF.plot_gridded_cartopy(lonG, latG, iceConcDayG, proj=ccrs.NorthPolarStereo(central_longitude=-45), out=fig_path+'iceConcG_-'+str(year)+mstr+dayMonStr+dxStr+extraStr, 
 				date_string=str(year), month_string=mstr+dayMonStr, extra=extraStr, varStr='CDR ice conc', units_lab='', minval=0, maxval=1, cmap_1=plt.cm.viridis)
+            
+			cF.plot_gridded_not_cartopy(xptsG, yptsG, iceConcDayG, out=fig_path+'iceConcG_-'+str(year)+mstr+dayMonStr+dxStr+extraStr+'raw', 
+				date_string=str(year), month_string=mstr+dayMonStr, extra=extraStr, varStr='CDR ice conc', units_lab='', minval=0, maxval=1, cmap_1=plt.cm.viridis)
+
 		
 			iceConcDayG.dump(out_path+str(year)+'/iceConcG_CDR'+dxStr+'-'+str(year)+'_d'+daySumStr+extraStr)
 
 
 #-- run main program
 if __name__ == '__main__':
-	for y in range(2020, 2020+1, 1):
-		print(y)
-		main(y)
-
+	main(2023, startMonth=10, endMonth=10, data_path='/explore/nobackup/people/aapetty/Data/ICECONC/CDR/daily/', 
+				out_path='/explore/nobackup/people/aapetty/Data/nesosim_data/Forcings/'+'IceConc/CDR/', fig_path='/explore/nobackup/people/aapetty/Data/nesosim_data/Figures/'+'IceConc/CDR/', anc_data_path='/explore/nobackup/people/aapetty/Data/Other/')
 
